@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IxMaps - Admin Panel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      margin: 0;
+      padding: 0;
+      background-color: #f5f5f5;
+    }
+    
+    header {
+      background-color: #2c3e50;
+      color: white;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    header h1 {
+      margin: 0;
+      font-size: 24px;
+    }
+    
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .section {
+      background-color: white;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .section-header {
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .section-header h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+    
+    .btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      background-color: #3498db;
+      color: white;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+    
+    .btn:hover {
+      background-color: #2980b9;
+    }
+    
+    .btn-primary {
+      background-color: #2ecc71;
+    }
+    
+    .btn-primary:hover {
+      background-color: #27ae60;
+    }
+    
+    .btn-danger {
+      background-color: #e74c3c;
+    }
+    
+    .btn-danger:hover {
+      background-color: #c0392b;
+    }
+    
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #ddd;
+      margin-bottom: 20px;
+    }
+    
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+    }
+    
+    .tab.active {
+      border-bottom-color: #3498db;
+      font-weight: bold;
+    }
+    
+    .tab-content {
+      display: none;
+    }
+    
+    .tab-content.active {
+      display: block;
+    }
+    
+    .label-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    
+    .label-card {
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    
+    .label-card-header {
+      background-color: #f8f8f8;
+      padding: 10px 15px;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .label-card-header h3 {
+      margin: 0;
+      font-size: 16px;
+    }
+    
+    .label-category {
+      background-color: #3498db;
+      color: white;
+      padding: 3px 8px;
+      border-radius: 3px;
+      font-size: 12px;
+    }
+    
+    .label-content {
+      padding: 15px;
+    }
+    
+    .label-info {
+      margin-bottom: 15px;
+    }
+    
+    .label-info-item {
+      display: flex;
+      margin-bottom: 5px;
+    }
+    
+    .label-info-label {
+      font-weight: bold;
+      width: 120px;
+    }
+    
+    .label-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 15px;
+    }
+    
+    .status-pending {
+      border-left: 4px solid #f39c12;
+    }
+    
+    .status-approved {
+      border-left: 4px solid #2ecc71;
+    }
+    
+    .status-rejected {
+      border-left: 4px solid #e74c3c;
+    }
+    
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .modal-content {
+      background-color: white;
+      border-radius: 5px;
+      padding: 20px;
+      width: 90%;
+      max-width: 500px;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .modal-header h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+    
+    .close-modal {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    
+    .form-group textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      resize: vertical;
+      min-height: 80px;
+    }
+    
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    
+    .loading {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255,255,255,0.8);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    
+    .loading-spinner {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #3498db;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 2s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 40px 0;
+      color: #777;
+    }
+    
+    .empty-state i {
+      font-size: 48px;
+      margin-bottom: 10px;
+      display: block;
+    }
+    
+    .notification {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 15px 20px;
+      border-radius: 5px;
+      color: white;
+      z-index: 2000;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      opacity: 1;
+      transition: opacity 0.5s;
+    }
+    
+    .notification.success {
+      background-color: #2ecc71;
+    }
+    
+    .notification.error {
+      background-color: #e74c3c;
+    }
+    
+    .notification.warning {
+      background-color: #f39c12;
+    }
+    
+    .notification.fadeout {
+      opacity: 0;
+    }
+    
+    .history-toggle {
+      background: none;
+      border: none;
+      color: #3498db;
+      cursor: pointer;
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 10px 15px;
+    }
+    
+    .history-toggle:hover {
+      background-color: #f5f5f5;
+    }
+    
+    .label-history {
+      display: none;
+      padding: 0 15px 15px;
+      font-size: 13px;
+    }
+    
+    .history-item {
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+    
+    .history-date {
+      color: #777;
+      font-size: 12px;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>IxMaps Admin Panel</h1>
+    <div class="header-actions">
+      <button id="refresh-button" class="btn">Refresh</button>
+      <a href="/" class="btn">Return to Map</a>
+    </div>
+  </header>
+  
+  <div class="container">
+    <div class="section">
+      <div class="section-header">
+        <h2>Label Moderation</h2>
+      </div>
+      
+      <div class="tabs">
+        <div class="tab active" data-tab="pending">Pending</div>
+        <div class="tab" data-tab="approved">Approved</div>
+        <div class="tab" data-tab="rejected">Rejected</div>
+        <div class="tab" data-tab="all">All Labels</div>
+      </div>
+      
+      <div id="pending-tab" class="tab-content active">
+        <div id="pending-labels" class="label-cards">
+          <!-- Pending labels will be loaded here -->
+          <div class="empty-state">
+            <i>📝</i>
+            <p>No pending labels found.</p>
+          </div>
+        </div>
+      </div>
+      
+      <div id="approved-tab" class="tab-content">
+        <div id="approved-labels" class="label-cards">
+          <!-- Approved labels will be loaded here -->
+        </div>
+      </div>
+      
+      <div id="rejected-tab" class="tab-content">
+        <div id="rejected-labels" class="label-cards">
+          <!-- Rejected labels will be loaded here -->
+        </div>
+      </div>
+      
+      <div id="all-tab" class="tab-content">
+        <div id="all-labels" class="label-cards">
+          <!-- All labels will be loaded here -->
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Modal for approve/reject actions -->
+  <div class="modal" id="action-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">Approve Label</h2>
+        <button class="close-modal">&times;</button>
+      </div>
+      <div id="modal-body">
+        <div class="form-group">
+          <label for="action-notes">Notes:</label>
+          <textarea id="action-notes" placeholder="Optional notes about this action..."></textarea>
+        </div>
+        <div class="form-actions">
+          <button id="confirm-action" class="btn btn-primary">Confirm</button>
+          <button class="btn close-modal">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Loading spinner -->
+  <div class="loading" id="loading">
+    <div class="loading-spinner"></div>
+    <div class="loading-text">Loading...</div>
+  </div>
+  
+  <script src="/data/maps/ixmaps/public/js/admin-panel.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize the admin panel
+      const admin = new IxMapAdmin({
+        apiBaseUrl: '/api',
+        categoryLabels: {
+          'continent': 'Continent',
+          'country': 'Country',
+          'capital': 'Capital',
+          'city': 'City',
+          'landmark': 'Landmark',
+          'water': 'Water Body'
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+// map-utility.js - Helper script to check and manage map files
+
+const fs = require('fs');
+const path = require('path');
+
+// Map configuration
+const MAP_CONFIG = {
+  basePath: path.resolve(__dirname, '/wiki/prod/v14/data/maps/ixmaps/public/'),
+  filename: 'map.svg',
+  getFullPath: function() {
+    return path.join(this.basePath, this.filename);
+  }
+};
+
+// Ensure directories exist
+function ensureDirectories() {
+  if (!fs.existsSync(MAP_CONFIG.basePath)) {
+    try {
+      fs.mkdirSync(MAP_CONFIG.basePath, { recursive: true });
+      console.log(`Created map directory: ${MAP_CONFIG.basePath}`);
+      return true;
+    } catch (error) {
+      console.error(`Failed to create map directory: ${error.message}`);
+      return false;
+    }
+  }
+  return true;
+}
+
+// Check if map exists
+function checkMapExists() {
+  const mapPath = MAP_CONFIG.getFullPath();
+  const exists = fs.existsSync(mapPath);
+  
+  console.log(`Checking map at: ${mapPath}`);
+  console.log(`Map exists: ${exists ? 'YES' : 'NO'}`);
+  
+  if (exists) {
+    const stats = fs.statSync(mapPath);
+    console.log(`Map size: ${(stats.size / 1024).toFixed(2)} KB`);
+    console.log(`Last modified: ${stats.mtime}`);
+  }
+  
+  return exists;
+}
+
+// Copy map from source
+function copyMap(sourcePath) {
+  if (!fs.existsSync(sourcePath)) {
+    console.error(`Source map not found at: ${sourcePath}`);
+    return false;
+  }
+  
+  if (!ensureDirectories()) {
+    return false;
+  }
+  
+  try {
+    fs.copyFileSync(sourcePath, MAP_CONFIG.getFullPath());
+    console.log(`Map copied from ${sourcePath} to ${MAP_CONFIG.getFullPath()}`);
+    return true;
+  } catch (error) {
+    console.error(`Error copying map: ${error.message}`);
+    return false;
+  }
+}
+
+// Main function
+function main() {
+  const args = process.argv.slice(2);
+  const command = args[0];
+  
+  switch (command) {
+    case 'check':
+      checkMapExists();
+      break;
+    
+    case 'copy':
+      if (args.length < 2) {
+        console.error('Usage: node map-utility.js copy <source-path>');
+        process.exit(1);
+      }
+      copyMap(args[1]);
+      break;
+    
+    case 'info':
+      console.log('Map Configuration:');
+      console.log(`- Base Path: ${MAP_CONFIG.basePath}`);
+      console.log(`- Filename: ${MAP_CONFIG.filename}`);
+      console.log(`- Full Path: ${MAP_CONFIG.getFullPath()}`);
+      break;
+    
+    default:
+      console.log('IxMaps Map Utility');
+      console.log('-----------------');
+      console.log('Commands:');
+      console.log('  check           - Check if map exists at configured location');
+      console.log('  copy <source>   - Copy map from source path to configured location');
+      console.log('  info            - Show map configuration information');
+      break;
+  }
+}
+
+main();

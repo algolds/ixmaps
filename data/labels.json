@@ -1,0 +1,112 @@
+[
+    {
+      "id": "1",
+      "name": "Levantine Ocean",
+      "type": "water",
+      "x": 1186,
+      "y": 187,
+      "fontSize": 18,
+      "color": "#0277bd",
+      "minZoom": -2,
+      "maxZoom": 2
+    },
+    {
+      "id": "2",
+      "name": "Kirava",
+      "type": "country",
+      "x": 655,
+      "y": 172,
+      "fontSize": 16,
+      "color": "#000000",
+      "minZoom": -1,
+      "maxZoom": 2
+    },
+    {
+      "id": "3",
+      "name": "Odonery Ocean",
+      "type": "water",
+      "x": 676,
+      "y": 275,
+      "fontSize": 18,
+      "color": "#0277bd",
+      "minZoom": -2,
+      "maxZoom": 2
+    },
+    {
+      "id": "4",
+      "name": "Oceania",
+      "type": "continent",
+      "x": 1030,
+      "y": 428,
+      "fontSize": 20,
+      "color": "#333333",
+      "minZoom": -2,
+      "maxZoom": 2
+    },
+    {
+      "id": "5",
+      "name": "Faneria",
+      "type": "country",
+      "x": 915,
+      "y": 182,
+      "fontSize": 16,
+      "color": "#000000",
+      "minZoom": -1,
+      "maxZoom": 2
+    },
+    {
+      "id": "6",
+      "name": "Urcasa",
+      "type": "country",
+      "x": 970,
+      "y": 307,
+      "fontSize": 16,
+      "color": "#000000",
+      "minZoom": -1,
+      "maxZoom": 2
+    },
+    {
+      "id": "7",
+      "name": "Daxia",
+      "type": "country",
+      "x": 1315,
+      "y": 428,
+      "fontSize": 16,
+      "color": "#000000",
+      "minZoom": -1,
+      "maxZoom": 2
+    },
+    {
+      "id": "8",
+      "name": "Carsanis",
+      "type": "country",
+      "x": 148,
+      "y": 160,
+      "fontSize": 16,
+      "color": "#000000",
+      "minZoom": -1,
+      "maxZoom": 2
+    },
+    {
+      "id": "9",
+      "name": "Kiravan City",
+      "type": "capital",
+      "x": 655,
+      "y": 150,
+      "fontSize": 12,
+      "color": "#000000",
+      "minZoom": 0,
+      "maxZoom": 2
+    },
+    {
+      "id": "10",
+      "name": "Absarian Ocean",
+      "type": "water",
+      "x": 590,
+      "y": 602,
+      "fontSize": 18,
+      "color": "#0277bd",
+      "minZoom": -2,
+      "maxZoom": 2
+    }
+  ]

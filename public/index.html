@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IxMaps - Alpha v2.0</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      font-family: Arial, sans-serif;
+      overflow: hidden;
+    }
+    #map {
+      width: 100%;
+      height: 100vh;
+      background-color: #D5FFFF;
+    }
+    .control-panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      max-width: 250px;
+    }
+    .control-panel.hidden {
+      transform: translateX(calc(100% + 10px));
+      opacity: 0;
+    }
+    .control-panel h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .control-toggle {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 999;
+      background: white;
+      width: 30px;
+      height: 30px;
+      border-radius: 5px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 20px;
+      user-select: none;
+    }
+    .map-label {
+      text-shadow: 0px 0px 3px white, 0px 0px 3px white;
+      font-weight: bold;
+    }
+    #map-status {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      background: rgba(255,255,255,0.8);
+      padding: 5px;
+      border-radius: 5px;
+      z-index: 1000;
+    }
+    .layer-toggle {
+      margin-bottom: 8px;
+    }
+    .layer-group {
+      margin-bottom: 15px;
+    }
+    /* Legend Styles */
+    .map-legend {
+      position: absolute;
+      bottom: 30px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      max-width: 200px;
+      max-height: 50vh;
+      overflow-y: auto;
+    }
+    .legend-title {
+      margin-top: 0;
+      margin-bottom: 10px;
+      font-size: 14px;
+      font-weight: bold;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .legend-toggle {
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin-bottom: 5px;
+      font-size: 12px;
+    }
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      margin-right: 8px;
+      border: 1px solid #ccc;
+      border-radius: 3px;
+    }
+    .legend-content.hidden {
+      display: none;
+    }
+    .legend-section {
+      margin-bottom: 10px;
+    }
+    .legend-section-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+      font-size: 13px;
+    }
+    
+    /* Editor mode styles */
+    #map.edit-mode {
+      cursor: crosshair;
+    }
+    
+    .pending-label {
+      opacity: 0.7;
+      border: 2px dashed #ff6600;
+      padding: 2px 5px;
+      border-radius: 3px;
+      background-color: rgba(255, 255, 255, 0.7);
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="map-status"></div>
+  
+  <div class="control-toggle" id="toggle-controls">≡</div>
+  
+  <div class="control-panel hidden" id="controls">
+    <h3>Display Options</h3>
+    <div id="layer-controls">
+      <!-- Layer toggles will be added here dynamically -->
+    </div>
+  </div>
+
+  <div class="map-legend" id="map-legend">
+    <div class="legend-title">
+      Map Legend <span class="legend-toggle" id="toggle-legend">−</span>
+    </div>
+    <div class="legend-content" id="legend-content">
+      <!-- Legend items will be added here dynamically -->
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script src="/data/maps/ixmaps/public/js/map-editor.js"></script>
+  <script>
+    // Hide map status message after a delay
+setTimeout(() => {
+  const mapStatus = document.getElementById('map-status');
+  if (mapStatus) {
+    mapStatus.style.opacity = '0';
+    mapStatus.style.transition = 'opacity 1s ease';
+    
+    // Remove from DOM after fade out
+    setTimeout(() => {
+      if (mapStatus.parentNode) {
+        mapStatus.parentNode.removeChild(mapStatus);
+      }
+    }, 1000);
+  }
+}, 3000); // Hide after 3 seconds
+    // Map configuration helper
+    const mapConfig = {
+      url: '/data/maps/v/alpha/ixmaps/public/map.svg',
+      //hardcodedUrl: '/data/maps/v/alpha/ixmaps/public/map.svg',
+      
+      // SVG dimensions - adjusted dynamically when SVG loads
+      svgWidth: 1920,
+      svgHeight: 1080,
+      
+      // Default zoom level (higher number = more zoomed in)
+      defaultZoom: 0,
+      
+      // Label categories
+      labelCategories: [
+        { id: 'continent', name: 'Continent', minZoom: -3 },
+        { id: 'country', name: 'Country', minZoom: -1 },
+        { id: 'capital', name: 'Capital', minZoom: 0 },
+        { id: 'city', name: 'City', minZoom: 1 },
+        { id: 'landmark', name: 'Landmark', minZoom: 2 },
+        { id: 'water', name: 'Water Body', minZoom: -2 }
+      ],
+      
+      // Fetch map info from the server
+      fetchMapInfo: async function() {
+        try {
+          const response = await fetch('/api/map-info');
+          if (!response.ok) {
+            throw new Error(`HTTP error: ${response.status}`);
+          }
+          return await response.json();
+        } catch (error) {
+          console.error('Error fetching map info:', error);
+          return { exists: false };
+        }
+      },
+      
+      // Color schemes for the legend
+      colorSchemes: {
+        topographic: {
+          name: "Topographic",
+          sections: [
+            {
+              title: "Elevation",
+              items: [
+                { color: "#d8f2ba", label: "Lowlands" },
+                { color: "#b9df7e", label: "Hills" },
+                { color: "#8ebe56", label: "Highlands" },
+                { color: "#598834", label: "Mountains" },
+                { color: "#39521f", label: "Peaks" }
+              ]
+            },
+            {
+              title: "Water",
+              items: [
+                { color: "#a3cddb", label: "Ocean" },
+                { color: "#b8def0", label: "Lakes" }
+              ]
+            }
+          ]
+        }
+      },
+      
+      // Current color scheme
+      currentScheme: "topographic"
+    };
+
+    // SVG utilities
+    const svgUtils = {
+      loadSVG: async function() {
+        const mapStatus = document.getElementById('map-status');
+        mapStatus.textContent = 'Attempting to load map...';
+        
+        try {
+          console.log('Attempting to fetch SVG from:', mapConfig.url);
+          let response = await fetch(mapConfig.url);
+          
+          if (!response.ok) {
+            console.log('Regular URL failed, trying hardcoded URL:', mapConfig.hardcodedUrl);
+            response = await fetch(mapConfig.hardcodedUrl);
+            
+            if (!response.ok) {
+              throw new Error(`Failed to load SVG: ${response.status} ${response.statusText}`);
+            } else {
+              mapConfig.url = mapConfig.hardcodedUrl;
+              console.log('Using hardcoded URL for SVG');
+            }
+          }
+          
+          const svgText = await response.text();
+          console.log('SVG loaded successfully, length:', svgText.length);
+          
+          // Try to extract viewBox from SVG for better dimensions
+          const viewBoxMatch = svgText.match(/viewBox="([^"]+)"/);
+          if (viewBoxMatch) {
+            const viewBox = viewBoxMatch[1].split(/\s+/).map(Number);
+            if (viewBox.length === 4) {
+              mapConfig.svgWidth = viewBox[2];
+              mapConfig.svgHeight = viewBox[3];
+              console.log(`Extracted viewBox dimensions: ${mapConfig.svgWidth}x${mapConfig.svgHeight}`);
+            }
+          }
+          
+          mapStatus.textContent = 'Map loaded successfully!';
+          mapStatus.style.color = 'green';
+          
+          return true;
+        } catch (error) {
+          console.error('Error loading SVG:', error);
+          mapStatus.textContent = `Error: ${error.message}`;
+          mapStatus.style.color = 'red';
+          return false;
+        }
+      },
+      
+      checkAndDisplayMapInfo: async function() {
+        const mapStatus = document.getElementById('map-status');
+        
+        try {
+          const info = await mapConfig.fetchMapInfo();
+          if (info.exists) {
+            mapStatus.textContent = `Map found: ${info.path}`;
+            mapStatus.style.color = 'green';
+            return true;
+          } else {
+            mapStatus.textContent = `Map not found at expected location. Trying direct loading...`;
+            mapStatus.style.color = 'orange';
+            return await svgUtils.loadSVG();
+          }
+        } catch (error) {
+          mapStatus.textContent = `Error checking map: ${error.message}`;
+          mapStatus.style.color = 'red';
+          return await svgUtils.loadSVG();
+        }
+      }
+    };
+
+    // UI utilities
+    const uiUtils = {
+      // Initialize layer controls based on configuration
+      initializeLayerControls: async function() {
+        const controlsContainer = document.getElementById('layer-controls');
+        controlsContainer.innerHTML = ''; // Clear existing controls
+        
+        try {
+          // Fetch layer configuration from server
+          const response = await fetch('/api/layers');
+          let layers = [];
+          
+          if (response.ok) {
+            layers = await response.json();
+          } else {
+            console.log('No layer configuration found, using defaults');
+            // Default layers if server doesn't provide them
+            layers = [
+              { id: 'continents', label: 'Continents', labelTypes: ['continent'], defaultVisible: true },
+              { id: 'countries', label: 'Countries', labelTypes: ['country'], defaultVisible: true },
+              { id: 'capitals', label: 'Capitals', labelTypes: ['capital'], defaultVisible: true },
+              { id: 'waters', label: 'Water Bodies', labelTypes: ['water'], defaultVisible: true },
+              { id: 'terrain', label: 'Terrain', labelTypes: ['terrain'], defaultVisible: true }
+            ];
+          }
+          
+          // Group layers by category
+          const categories = {
+            'Labels': ['continents', 'countries', 'capitals', 'cities', 'regions', 'waters'],
+            'Features': ['terrain', 'rivers', 'mountains', 'forests'],
+            'Other': []
+          };
+          
+          // Sort layers into categories
+          const categorizedLayers = {};
+          Object.keys(categories).forEach(category => {
+            categorizedLayers[category] = [];
+          });
+          
+          layers.forEach(layer => {
+            let assigned = false;
+            
+            // Check each category
+            for (const [category, ids] of Object.entries(categories)) {
+              if (ids.includes(layer.id)) {
+                categorizedLayers[category].push(layer);
+                assigned = true;
+                break;
+              }
+            }
+            
+            // If not assigned to a specific category, add to Other
+            if (!assigned) {
+              categorizedLayers['Other'].push(layer);
+            }
+          });
+          
+          // Create controls grouped by category
+          for (const [category, categoryLayers] of Object.entries(categorizedLayers)) {
+            if (categoryLayers.length > 0) {
+              const groupDiv = document.createElement('div');
+              groupDiv.className = 'layer-group';
+              
+              const groupTitle = document.createElement('div');
+              groupTitle.style.fontWeight = 'bold';
+              groupTitle.style.marginBottom = '5px';
+              groupTitle.textContent = category;
+              groupDiv.appendChild(groupTitle);
+              
+              // Add layer toggles
+              categoryLayers.forEach(layer => {
+                const controlDiv = document.createElement('div');
+                controlDiv.className = 'layer-toggle';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `show-${layer.id}`;
+                checkbox.dataset.layerId = layer.id;
+                checkbox.checked = layer.defaultVisible;
+                
+                const label = document.createElement('label');
+                label.htmlFor = `show-${layer.id}`;
+                label.textContent = layer.label;
+                
+                controlDiv.appendChild(checkbox);
+                controlDiv.appendChild(label);
+                groupDiv.appendChild(controlDiv);
+              });
+              
+              controlsContainer.appendChild(groupDiv);
+            }
+          }
+          
+          return layers;
+        } catch (error) {
+          console.error('Error initializing layer controls:', error);
+          return [];
+        }
+      },
+      
+      // Toggle control panel visibility
+      initializeControlToggle: function() {
+        const toggleButton = document.getElementById('toggle-controls');
+        const controlPanel = document.getElementById('controls');
+        
+        toggleButton.addEventListener('click', function() {
+          controlPanel.classList.toggle('hidden');
+          toggleButton.textContent = controlPanel.classList.contains('hidden') ? '≡' : '×';
+        });
+      },
+      
+      // Initialize the legend
+      initializeLegend: function() {
+        const legendContent = document.getElementById('legend-content');
+        const toggleLegend = document.getElementById('toggle-legend');
+        const colorScheme = mapConfig.colorSchemes[mapConfig.currentScheme];
+        
+        // Set up toggle functionality
+        toggleLegend.addEventListener('click', function() {
+          const content = document.getElementById('legend-content');
+          content.classList.toggle('hidden');
+          toggleLegend.textContent = content.classList.contains('hidden') ? '+' : '−';
+        });
+        
+        // Clear existing content
+        legendContent.innerHTML = '';
+        
+        // Create legend items based on current color scheme
+        if (colorScheme) {
+          colorScheme.sections.forEach(section => {
+            const sectionDiv = document.createElement('div');
+            sectionDiv.className = 'legend-section';
+            
+            const sectionTitle = document.createElement('div');
+            sectionTitle.className = 'legend-section-title';
+            sectionTitle.textContent = section.title;
+            sectionDiv.appendChild(sectionTitle);
+            
+            section.items.forEach(item => {
+              const itemDiv = document.createElement('div');
+              itemDiv.className = 'legend-item';
+              
+              const colorBox = document.createElement('div');
+              colorBox.className = 'legend-color';
+              colorBox.style.backgroundColor = item.color;
+              
+              const label = document.createElement('div');
+              label.textContent = item.label;
+              
+              itemDiv.appendChild(colorBox);
+              itemDiv.appendChild(label);
+              sectionDiv.appendChild(itemDiv);
+            });
+            
+            legendContent.appendChild(sectionDiv);
+          });
+        }
+      }
+    };
+
+    // Initialize the application
+    async function initializeMap() {
+      // Initialize UI elements
+      uiUtils.initializeControlToggle();
+      uiUtils.initializeLegend();
+      const layers = await uiUtils.initializeLayerControls();
+      
+      // Check if map exists and update status
+      await svgUtils.checkAndDisplayMapInfo();
+      
+      // Initialize the map with proper CRS settings for SVG scaling
+      const map = L.map('map', {
+        crs: L.CRS.Simple,
+        minZoom: -3,  // Allow more zoom out to ensure map can fill screen
+        maxZoom: 3,   // Allow more zoom in for details
+        zoomSnap: 0.1, // Finer zoom control
+        zoomDelta: 0.5,
+        attributionControl: false
+      });
+
+      // Calculate bounds that will fit the viewport
+      function calculateBounds() {
+        const containerWidth = map.getContainer().clientWidth;
+        const containerHeight = map.getContainer().clientHeight;
+        
+        // Calculate aspect ratios
+        const containerAspect = containerWidth / containerHeight;
+        const svgAspect = mapConfig.svgWidth / mapConfig.svgHeight;
+        
+        let width, height;
+        
+        // Determine dimensions to fill the viewport
+        if (containerAspect > svgAspect) {
+          // Container is wider than SVG - fit to height
+          height = mapConfig.svgHeight;
+          width = height * containerAspect;
+        } else {
+          // Container is taller than SVG - fit to width
+          width = mapConfig.svgWidth;
+          height = width / containerAspect;
+        }
+        
+        // Center the map on the SVG
+        const offsetX = (width - mapConfig.svgWidth) / 2;
+        const offsetY = (height - mapConfig.svgHeight) / 2;
+        
+        return [
+          [-offsetY, -offsetX],
+          [mapConfig.svgHeight + offsetY, mapConfig.svgWidth + offsetX]
+        ];
+      }
+      
+      // Get the bounds to fill the viewport
+      const bounds = calculateBounds();
+      console.log('Calculated bounds:', bounds);
+      
+      // Add the SVG as a layer to the map with error handling
+      const svgLayer = L.imageOverlay(mapConfig.url, bounds)
+        .on('error', function(e) {
+          console.error('Error loading SVG in Leaflet:', e);
+          document.getElementById('map-status').textContent = 
+            'Error loading map in Leaflet. The SVG might be in a format Leaflet cannot display.';
+          document.getElementById('map-status').style.color = 'red';
+        })
+        .addTo(map);
+      
+      // Fit the map to the bounds and disable animations for smoother experience
+      map.fitBounds(bounds, { 
+        animate: false,
+        padding: [0, 0]
+      });
+      
+      // Set the default zoom level (higher = more zoomed in)
+      setTimeout(() => {
+        map.setZoom(mapConfig.defaultZoom);
+      }, 100);
+      
+      // Handle window resize to keep the map filling the viewport
+      window.addEventListener('resize', function() {
+        const newBounds = calculateBounds();
+        svgLayer.setBounds(newBounds);
+        map.fitBounds(newBounds, { 
+          animate: false,
+          padding: [0, 0]
+        });
+        
+        // Maintain the current zoom level after resize
+        const currentZoom = map.getZoom();
+        setTimeout(() => {
+          map.setZoom(currentZoom);
+        }, 100);
+      });
+      
+      // Initialize the map editor with the map instance
+      const editor = new IxMapEditor({
+        containerId: 'map',
+        apiBaseUrl: 'api',
+        labelCategories: mapConfig.labelCategories
+      });
+      
+      // Set the map reference in the editor
+      editor.setMap(map);
+      
+      // Load the labels using the editor
+      await editor.loadLabels();
+      
+      // Check URL parameters for potential login redirect
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('redirectToAdmin') === 'true') {
+        // Show login dialog if redirected from admin page
+        editor.showLoginDialog();
+      }
+    }
+
+    // Start the application when page loads
+    document.addEventListener('DOMContentLoaded', initializeMap);
+  </script>
+</body>
+</html>
