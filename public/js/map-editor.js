@@ -1,22 +1,27 @@
 /**
  * IxMaps - Interactive Map Editor
  * Adds label editing and management capabilities to the IxMaps viewer
+ * Modified to use dummy auth data and simplified login process
  */
 
 class IxMapEditor {
   constructor(options) {
     this.mapContainerId = options.containerId || 'map';
     this.apiBaseUrl = options.apiBaseUrl || '/api';
-    this.sessionId = localStorage.getItem('ixmaps-session-id') || null;
+    this.sessionId = localStorage.getItem('ixmaps-session-id') || 'dummy-session-id';
     
     // State variables
     this.map = null;
     this.editMode = false;
-    this.currentUser = null;
-    this.labels = [];
-    this.pendingLabels = [];
     this.selectedLabel = null;
     this.labelLayerGroup = null;
+    
+    // Use dummy user data - automatically "logged in"
+    this.currentUser = {
+      id: 'user-1',
+      username: 'Guest Editor',
+      isAdmin: true
+    };
     
     // Label categories
     this.labelCategories = options.labelCategories || [
@@ -27,6 +32,13 @@ class IxMapEditor {
       { id: 'landmark', name: 'Landmark', minZoom: 2 },
       { id: 'water', name: 'Water Body', minZoom: -2 }
     ];
+    
+    // Load saved labels from localStorage
+    this.labels = this.loadLabelsFromStorage('ixmaps-approved-labels') || [];
+    this.pendingLabels = this.loadLabelsFromStorage('ixmaps-pending-labels') || [];
+    
+    // Store the session ID in localStorage for persistence
+    localStorage.setItem('ixmaps-session-id', this.sessionId);
     
     // Initialize editor components
     this.initializeEditor();
@@ -62,13 +74,14 @@ class IxMapEditor {
     // Add editor UI
     this.createEditorUI();
     
-    // Check authentication status
-    await this.checkAuthStatus();
+    // Skip authentication check and update UI directly
+    this.updateAuthUI(true);
     
     // Initialize event listeners
     this.initializeEventListeners();
     
-    console.log('Editor initialized');
+    console.log('Editor initialized with dummy authentication');
+    this.showNotification('Editor initialized. You are logged in as Guest Editor.', 'info');
   }
   
   /**
@@ -80,7 +93,7 @@ class IxMapEditor {
     
     // Add map click handler for adding labels
     this.map.on('click', (e) => {
-      if (this.editMode && this.currentUser) {
+      if (this.editMode) {
         this.showLabelCreationForm(e.latlng);
       }
     });
@@ -99,13 +112,12 @@ class IxMapEditor {
     const toolbar = document.createElement('div');
     toolbar.className = 'editor-toolbar';
     toolbar.id = 'editor-toolbar';
-    toolbar.style.display = 'none';
     
     // Auth status
     const authStatus = document.createElement('div');
-    authStatus.className = 'auth-status not-authenticated';
+    authStatus.className = 'auth-status authenticated';
     authStatus.id = 'auth-status';
-    authStatus.textContent = 'Not logged in';
+    authStatus.textContent = 'Logged in as: Guest Editor';
     
     // Editor toggle button
     const editorToggle = document.createElement('button');
@@ -114,16 +126,23 @@ class IxMapEditor {
     editorToggle.textContent = 'Enter Editor Mode';
     
     // Admin panel link
-    const adminLink = document.createElement('a');
-    adminLink.href = '/admin';
-    adminLink.id = 'admin-link';
-    adminLink.className = 'editor-button';
-    adminLink.textContent = 'Admin Panel';
-    adminLink.style.display = 'none';
+   // const adminLink = document.createElement('a');
+    // adminLink.href = '/public/admin.html';
+    // adminLink.id = 'admin-link';
+    //   adminLink.className = 'editor-button';
+    // adminLink.textContent = 'Admin Panel';
+    // adminLink.style.display = 'inline-block'; // Show admin link since we're using admin privileges
+    
+    // Manage Edits button
+    const manageEditsButton = document.createElement('button');
+    manageEditsButton.id = 'manage-edits-button';
+    manageEditsButton.className = 'editor-button';
+    manageEditsButton.textContent = 'Manage Edits';
     
     // Assemble toolbar
     toolbar.appendChild(authStatus);
     toolbar.appendChild(editorToggle);
+    toolbar.appendChild(manageEditsButton);
     toolbar.appendChild(adminLink);
     
     // Label creation form
@@ -208,7 +227,7 @@ class IxMapEditor {
       </form>
     `;
     
-    // Login dialog - Enhanced UI
+    // Login dialog - Enhanced UI & positioned at bottom center
     const loginDialog = document.createElement('div');
     loginDialog.id = 'ixmap-login-dialog';
     loginDialog.className = 'ixmap-modal';
@@ -219,12 +238,12 @@ class IxMapEditor {
         <form id="ixmap-login-form">
           <div class="form-group">
             <label for="ixmap-login-username">Username:</label>
-            <input type="text" id="ixmap-login-username" name="username" required autofocus>
+            <input type="text" id="ixmap-login-username" name="username" value="Guest Editor" required autofocus>
           </div>
           <div class="form-group">
             <label for="ixmap-login-password">Password:</label>
-            <input type="password" id="ixmap-login-password" name="password">
-            <small style="color: #777; display: block; margin-top: 5px;">(Any password works for demo)</small>
+            <input type="password" id="ixmap-login-password" name="password" value="dummy">
+            <small style="color: #777; display: block; margin-top: 5px;">(Auto-login enabled for demo)</small>
           </div>
           <div class="form-buttons">
             <button type="submit" class="ixmap-button primary" style="flex: 1;">Login</button>
@@ -234,14 +253,65 @@ class IxMapEditor {
       </div>
     `;
     
+    // Create manage edits modal
+    const manageEditsModal = document.createElement('div');
+    manageEditsModal.id = 'ixmap-manage-edits-modal';
+    manageEditsModal.className = 'ixmap-modal';
+    manageEditsModal.style.display = 'none';
+    manageEditsModal.innerHTML = `
+      <div class="ixmap-modal-content">
+        <h2>Manage Map Edits</h2>
+        <div class="manage-edits-tabs">
+          <button class="tab-button active" data-tab="all-labels">All Labels</button>
+          <button class="tab-button" data-tab="approved-labels">Approved</button>
+          <button class="tab-button" data-tab="pending-labels">Pending</button>
+        </div>
+        <div class="edits-container" id="edits-list-container">
+          <div id="all-labels-container" class="labels-list active"></div>
+          <div id="approved-labels-container" class="labels-list"></div>
+          <div id="pending-labels-container" class="labels-list"></div>
+        </div>
+        <div class="bulk-actions">
+          <button id="bulk-delete-button" class="ixmap-button danger">Delete Selected</button>
+          <button id="export-edits-button" class="ixmap-button">Export</button>
+          <button id="clear-all-edits-button" class="ixmap-button danger">Clear All Edits</button>
+          <button id="close-manage-edits" class="ixmap-button">Close</button>
+        </div>
+      </div>
+    `;
+    
     // Add elements to the document
     document.body.appendChild(toolbar);
     document.body.appendChild(labelForm);
     document.body.appendChild(editForm);
     document.body.appendChild(loginDialog);
+    document.body.appendChild(manageEditsModal);
     
     // Add CSS for editor elements
     this.addEditorStyles();
+  }
+  
+  /**
+   * Local storage helpers
+   */
+  saveLabelsToStorage(key, labels) {
+    try {
+      localStorage.setItem(key, JSON.stringify(labels));
+      return true;
+    } catch (error) {
+      console.error(`Error saving to ${key}:`, error);
+      return false;
+    }
+  }
+  
+  loadLabelsFromStorage(key) {
+    try {
+      const data = localStorage.getItem(key);
+      return data ? JSON.parse(data) : null;
+    } catch (error) {
+      console.error(`Error loading from ${key}:`, error);
+      return null;
+    }
   }
   
   /**
@@ -393,7 +463,7 @@ class IxMapEditor {
         background-color: rgba(0, 0, 0, 0.5);
         display: flex;
         justify-content: center;
-        align-items: flex-start;
+        align-items: flex-end; /* Position at bottom */
         z-index: 2000;
       }
       
@@ -404,7 +474,7 @@ class IxMapEditor {
         padding: 25px;
         width: 90%;
         max-width: 400px;
-        margin-top: 80px;
+        margin-bottom: 50px; /* Space from bottom edge */
         position: relative;
       }
       
@@ -481,6 +551,97 @@ class IxMapEditor {
       #map-status {
         transition: opacity 1s ease;
       }
+      
+      /* Manage Edits Modal Styles */
+      #ixmap-manage-edits-modal .ixmap-modal-content {
+        width: 90%;
+        max-width: 800px;
+        max-height: 80vh;
+        overflow-y: auto;
+        margin-bottom: 30px;
+      }
+      
+      .manage-edits-tabs {
+        display: flex;
+        border-bottom: 1px solid #eee;
+        margin-bottom: 15px;
+      }
+      
+      .tab-button {
+        background: none;
+        border: none;
+        padding: 8px 16px;
+        cursor: pointer;
+        font-size: 14px;
+        border-bottom: 2px solid transparent;
+      }
+      
+      .tab-button.active {
+        border-bottom-color: #3498db;
+        font-weight: bold;
+      }
+      
+      .edits-container {
+        max-height: 50vh;
+        overflow-y: auto;
+        margin-bottom: 15px;
+      }
+      
+      .labels-list {
+        display: none;
+      }
+      
+      .labels-list.active {
+        display: block;
+      }
+      
+      .label-item {
+        display: flex;
+        align-items: center;
+        padding: 8px;
+        border-bottom: 1px solid #eee;
+      }
+      
+      .label-item:hover {
+        background-color: #f5f5f5;
+      }
+      
+      .label-checkbox {
+        margin-right: 10px;
+      }
+      
+      .label-info {
+        flex: 1;
+      }
+      
+      .label-name {
+        font-weight: bold;
+      }
+      
+      .label-detail {
+        font-size: 12px;
+        color: #777;
+      }
+      
+      .label-actions {
+        display: flex;
+        gap: 5px;
+      }
+      
+      .bulk-actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 15px;
+        padding-top: 15px;
+        border-top: 1px solid #eee;
+      }
+      
+      .no-labels-message {
+        padding: 20px;
+        text-align: center;
+        color: #777;
+      }
     `;
     
     document.head.appendChild(style);
@@ -544,12 +705,16 @@ class IxMapEditor {
       });
     }
     
-    // Login form
+    // Login form - auto-login functionality
     const loginForm = document.getElementById('ixmap-login-form');
     if (loginForm) {
       loginForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        this.login();
+        // No need to make API call, just simulate successful login
+        document.getElementById('ixmap-login-dialog').style.display = 'none';
+        this.showNotification('Auto-login successful. You are now in editor mode.', 'success');
+        // Automatically enter edit mode after login
+        this.toggleEditorMode();
       });
     }
     
@@ -568,6 +733,74 @@ class IxMapEditor {
         if (e.target === loginDialog) {
           loginDialog.style.display = 'none';
         }
+      });
+    }
+    
+    // Manage Edits button
+    const manageEditsButton = document.getElementById('manage-edits-button');
+    if (manageEditsButton) {
+      manageEditsButton.addEventListener('click', () => {
+        this.showManageEditsModal();
+      });
+    }
+    
+    // Close manage edits modal
+    const closeManageEdits = document.getElementById('close-manage-edits');
+    if (closeManageEdits) {
+      closeManageEdits.addEventListener('click', () => {
+        document.getElementById('ixmap-manage-edits-modal').style.display = 'none';
+      });
+    }
+    
+    // Close manage edits modal when clicking outside
+    const manageEditsModal = document.getElementById('ixmap-manage-edits-modal');
+    if (manageEditsModal) {
+      manageEditsModal.addEventListener('click', (e) => {
+        if (e.target === manageEditsModal) {
+          manageEditsModal.style.display = 'none';
+        }
+      });
+    }
+    
+    // Tab switching in manage edits modal
+    const tabButtons = document.querySelectorAll('.tab-button');
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        // Update active tab button
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        
+        // Update active tab content
+        const tabId = button.dataset.tab;
+        const tabContents = document.querySelectorAll('.labels-list');
+        tabContents.forEach(content => content.classList.remove('active'));
+        document.getElementById(`${tabId}-container`).classList.add('active');
+      });
+    });
+    
+    // Bulk delete button
+    const bulkDeleteButton = document.getElementById('bulk-delete-button');
+    if (bulkDeleteButton) {
+      bulkDeleteButton.addEventListener('click', () => {
+        this.bulkDeleteLabels();
+      });
+    }
+    
+    // Clear all edits button
+    const clearAllEditsButton = document.getElementById('clear-all-edits-button');
+    if (clearAllEditsButton) {
+      clearAllEditsButton.addEventListener('click', () => {
+        if (confirm('Are you sure you want to delete ALL labels? This cannot be undone.')) {
+          this.clearAllLabels();
+        }
+      });
+    }
+    
+    // Export edits button
+    const exportEditsButton = document.getElementById('export-edits-button');
+    if (exportEditsButton) {
+      exportEditsButton.addEventListener('click', () => {
+        this.exportLabels();
       });
     }
     
@@ -601,47 +834,6 @@ class IxMapEditor {
   }
   
   /**
-   * Check authentication status
-   */
-  async checkAuthStatus() {
-    try {
-      const response = await fetch(`${this.apiBaseUrl}/auth/status`, {
-        headers: {
-          'X-Session-ID': this.sessionId || ''
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (data.authenticated) {
-          this.currentUser = {
-            id: data.userId,
-            username: data.username,
-            isAdmin: data.isAdmin || false
-          };
-          
-          this.updateAuthUI(true);
-        } else {
-          this.currentUser = null;
-          this.updateAuthUI(false);
-        }
-      } else {
-        this.currentUser = null;
-        this.updateAuthUI(false);
-      }
-      
-      // Show the editor toolbar
-      document.getElementById('editor-toolbar').style.display = 'flex';
-      
-    } catch (error) {
-      console.error('Error checking authentication:', error);
-      this.showNotification('Authentication check failed', 'error');
-      this.updateAuthUI(false);
-    }
-  }
-  
-  /**
    * Update authentication UI
    */
   updateAuthUI(isAuthenticated) {
@@ -666,6 +858,9 @@ class IxMapEditor {
     if (adminLink && this.currentUser) {
       adminLink.style.display = this.currentUser.isAdmin ? 'inline-block' : 'none';
     }
+    
+    // Show the editor toolbar
+    document.getElementById('editor-toolbar').style.display = 'flex';
   }
   
   /**
@@ -673,116 +868,17 @@ class IxMapEditor {
    */
   showLoginDialog() {
     document.getElementById('ixmap-login-dialog').style.display = 'flex';
-    document.getElementById('ixmap-login-username').focus();
-  }
-  
-  /**
-   * Login
-   */
-  async login() {
-    try {
-      const username = document.getElementById('ixmap-login-username').value;
-      const password = document.getElementById('ixmap-login-password').value;
-      
-      if (!username) {
-        this.showNotification('Username is required', 'error');
-        return;
-      }
-      
-      const response = await fetch(`${this.apiBaseUrl}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ username, password })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        
-        if (data.success) {
-          // Store session ID
-          this.sessionId = data.sessionId;
-          localStorage.setItem('ixmaps-session-id', this.sessionId);
-          
-          // Update user info
-          this.currentUser = {
-            id: data.user.id,
-            username: data.user.username,
-            isAdmin: data.user.isAdmin || false
-          };
-          
-          // Update UI
-          this.updateAuthUI(true);
-          
-          // Hide dialog
-          document.getElementById('ixmap-login-dialog').style.display = 'none';
-          
-          // Show success notification
-          this.showNotification(`Welcome, ${data.user.username}!`, 'success');
-          
-          // Reload labels to show pending ones
-          await this.loadLabels();
-        } else {
-          this.showNotification(data.message || 'Login failed', 'error');
-        }
-      } else {
-        const error = await response.json();
-        this.showNotification(error.error || 'Login failed', 'error');
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      this.showNotification('Login failed: ' + error.message, 'error');
-    }
-  }
-  
-  /**
-   * Logout
-   */
-  async logout() {
-    try {
-      await fetch(`${this.apiBaseUrl}/auth/logout`, {
-        method: 'POST',
-        headers: {
-          'X-Session-ID': this.sessionId || ''
-        }
-      });
-      
-      // Clear session
-      this.sessionId = null;
-      localStorage.removeItem('ixmaps-session-id');
-      this.currentUser = null;
-      
-      // Update UI
-      this.updateAuthUI(false);
-      
-      // Exit editor mode if active
-      if (this.editMode) {
-        this.toggleEditorMode();
-      }
-      
-      // Show notification
-      this.showNotification('Logged out successfully', 'info');
-      
-      // Reload labels to hide pending ones
-      await this.loadLabels();
-      
-    } catch (error) {
-      console.error('Logout error:', error);
-      this.showNotification('Logout failed: ' + error.message, 'error');
-    }
+    
+    // Focus on username field
+    setTimeout(() => {
+      document.getElementById('ixmap-login-username').focus();
+    }, 100);
   }
   
   /**
    * Toggle editor mode
    */
   toggleEditorMode() {
-    if (!this.currentUser) {
-      // Always show login dialog if not logged in
-      this.showLoginDialog();
-      return;
-    }
-    
     this.editMode = !this.editMode;
     
     const editorToggle = document.getElementById('editor-toggle');
@@ -796,6 +892,13 @@ class IxMapEditor {
     if (mapElement) {
       mapElement.classList.toggle('edit-mode', this.editMode);
     }
+    
+    // Show notification based on mode change
+    if (this.editMode) {
+      this.showNotification('Editor mode activated. Click on the map to add labels.', 'info');
+    } else {
+      this.showNotification('Editor mode deactivated.', 'info');
+    }
   }
   
   /**
@@ -803,6 +906,19 @@ class IxMapEditor {
    */
   async loadLabels() {
     try {
+      // First try to load from local storage
+      const storedApprovedLabels = this.loadLabelsFromStorage('ixmaps-approved-labels');
+      const storedPendingLabels = this.loadLabelsFromStorage('ixmaps-pending-labels');
+      
+      if (storedApprovedLabels && storedApprovedLabels.length > 0) {
+        this.labels = storedApprovedLabels;
+        this.pendingLabels = storedPendingLabels || [];
+        this.updateVisibleLabels();
+        this.showNotification('Loaded saved edits from local storage', 'info');
+        return [...this.labels, ...this.pendingLabels];
+      }
+      
+      // If no stored labels, try the API
       const response = await fetch(`${this.apiBaseUrl}/labels`, {
         headers: {
           'X-Session-ID': this.sessionId || ''
@@ -810,7 +926,17 @@ class IxMapEditor {
       });
       
       if (!response.ok) {
-        throw new Error('Failed to load labels');
+        // For demo/test, create dummy labels if API fails
+        console.warn('Failed to load labels from API, using dummy data');
+        this.labels = this.createDummyLabels();
+        this.pendingLabels = [];
+        
+        // Save to local storage
+        this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
+        this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
+        
+        this.updateVisibleLabels();
+        return this.labels;
       }
       
       const labels = await response.json();
@@ -819,15 +945,69 @@ class IxMapEditor {
       this.labels = labels.filter(label => label.status === 'approved');
       this.pendingLabels = labels.filter(label => label.status === 'pending');
       
+      // Save to local storage
+      this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
+      this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
+      
       // Update the map
       this.updateVisibleLabels();
       
       return labels;
     } catch (error) {
       console.error('Error loading labels:', error);
-      this.showNotification('Failed to load labels: ' + error.message, 'error');
-      return [];
+      
+      // For demo/test, create dummy labels if API fails
+      console.warn('Using dummy labels due to API error');
+      this.labels = this.createDummyLabels();
+      this.pendingLabels = [];
+      
+      // Save to local storage
+      this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
+      this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
+      
+      this.updateVisibleLabels();
+      
+      this.showNotification('Using demo labels for testing', 'warning');
+      return this.labels;
     }
+  }
+  
+  /**
+   * Create dummy labels for testing when API is unavailable
+   */
+  createDummyLabels() {
+    return [
+      {
+        id: 'dummy-1',
+        name: 'Example Continent',
+        type: 'continent',
+        minZoom: -3,
+        status: 'approved',
+        createdBy: 'user-1',
+        x: 0.25, // Longitude
+        y: 0.25  // Latitude
+      },
+      {
+        id: 'dummy-2',
+        name: 'Example Country',
+        type: 'country',
+        minZoom: -1,
+        status: 'approved',
+        createdBy: 'user-1',
+        x: 0.5,
+        y: 0.5
+      },
+      {
+        id: 'dummy-3',
+        name: 'Test City',
+        type: 'city',
+        minZoom: 1,
+        status: 'approved',
+        createdBy: 'user-1',
+        x: 0.75,
+        y: 0.75
+      }
+    ];
   }
   
   /**
@@ -848,14 +1028,12 @@ class IxMapEditor {
       }
     });
     
-    // Add pending labels (only visible to creator)
-    if (this.currentUser) {
-      this.pendingLabels.forEach(label => {
-        if (label.createdBy === this.currentUser.id && currentZoom >= (label.minZoom || -3)) {
-          this.addLabelToMap(label, true);
-        }
-      });
-    }
+    // Add pending labels (all visible when using dummy auth)
+    this.pendingLabels.forEach(label => {
+      if (currentZoom >= (label.minZoom || -3)) {
+        this.addLabelToMap(label, true);
+      }
+    });
   }
   
   /**
@@ -886,14 +1064,8 @@ class IxMapEditor {
       // Prevent propagation to map
       L.DomEvent.stopPropagation(e);
       
-      if (this.editMode && this.currentUser) {
-        const canEdit = isPending || 
-                       this.currentUser.isAdmin || 
-                       label.createdBy === this.currentUser.id;
-        
-        if (canEdit) {
-          this.showLabelEditForm(label);
-        }
+      if (this.editMode) {
+        this.showLabelEditForm(label);
       }
     });
     
@@ -942,11 +1114,6 @@ class IxMapEditor {
    * Create a new label
    */
   async createLabel() {
-    if (!this.currentUser) {
-      this.showNotification('Please log in to create labels', 'error');
-      return;
-    }
-    
     try {
       const form = document.getElementById('ixmap-label-form');
       const formData = new FormData(form);
@@ -966,42 +1133,64 @@ class IxMapEditor {
         return;
       }
       
-      // Submit to API
-      const response = await fetch(`${this.apiBaseUrl}/labels`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Session-ID': this.sessionId || ''
-        },
-        body: JSON.stringify(labelData)
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create label');
-      }
-      
-      const newLabel = await response.json();
-      
-      // Add to appropriate collection
-      if (newLabel.status === 'approved') {
+      try {
+        // Try to submit to API
+        const response = await fetch(`${this.apiBaseUrl}/labels`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Session-ID': this.sessionId || ''
+          },
+          body: JSON.stringify(labelData)
+        });
+        
+        if (response.ok) {
+          const newLabel = await response.json();
+          
+          // Add to appropriate collection
+          if (newLabel.status === 'approved') {
+            this.labels.push(newLabel);
+            this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
+          } else {
+            this.pendingLabels.push(newLabel);
+            this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
+          }
+          
+          // Update the map
+          this.updateVisibleLabels();
+          
+          // Show success notification
+          this.showNotification('Label created successfully', 'success');
+        } else {
+          throw new Error('API error');
+        }
+      } catch (apiError) {
+        console.warn('API error, using dummy label creation:', apiError);
+        
+        // Create a dummy label entry for testing
+        const newLabel = {
+          id: 'new-' + Date.now(),
+          ...labelData,
+          status: 'approved', // Auto-approve in dummy mode
+          createdBy: this.currentUser.id,
+          createdAt: new Date().toISOString()
+        };
+        
+        // Add to labels collection
         this.labels.push(newLabel);
-      } else {
-        this.pendingLabels.push(newLabel);
+        
+        // Save to localStorage
+        this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
+        
+        // Update the map
+        this.updateVisibleLabels();
+        
+        // Show notification
+        this.showNotification('Label created and saved to local storage', 'success');
       }
-      
-      // Update the map
-      this.updateVisibleLabels();
       
       // Hide the form
       document.getElementById('ixmap-label-form-container').style.display = 'none';
-      
-      // Show success notification
-      if (newLabel.status === 'approved') {
-        this.showNotification('Label created successfully', 'success');
-      } else {
-        this.showNotification('Label submitted for approval', 'success');
-      }
       
     } catch (error) {
       console.error('Error creating label:', error);
@@ -1047,7 +1236,7 @@ class IxMapEditor {
    * Update an existing label
    */
   async updateLabel() {
-    if (!this.currentUser || !this.selectedLabel) {
+    if (!this.selectedLabel) {
       return;
     }
     
@@ -1069,46 +1258,56 @@ class IxMapEditor {
         return;
       }
       
-      // Submit to API
-      const response = await fetch(`${this.apiBaseUrl}/labels/${labelId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Session-ID': this.sessionId || ''
-        },
-        body: JSON.stringify(labelData)
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update label');
-      }
-      
-      const updatedLabel = await response.json();
-      
-      // Update local data
-      const wasApproved = this.selectedLabel.status === 'approved';
-      const isNowApproved = updatedLabel.status === 'approved';
-      
-      if (wasApproved && isNowApproved) {
-        // Update in approved list
+      try {
+        // Try to submit to API
+        const response = await fetch(`${this.apiBaseUrl}/labels/${labelId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Session-ID': this.sessionId || ''
+          },
+          body: JSON.stringify(labelData)
+        });
+        
+        if (response.ok) {
+          const updatedLabel = await response.json();
+          
+          // Update in appropriate collection
+          const index = this.labels.findIndex(l => l.id === labelId);
+          if (index !== -1) {
+            this.labels[index] = updatedLabel;
+            this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
+          } else {
+            const pendingIndex = this.pendingLabels.findIndex(l => l.id === labelId);
+            if (pendingIndex !== -1) {
+              this.pendingLabels[pendingIndex] = updatedLabel;
+              this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
+            }
+          }
+        } else {
+          throw new Error('API error');
+        }
+      } catch (apiError) {
+        console.warn('API error, using dummy label update:', apiError);
+        
+        // Create a dummy updated label
+        const updatedLabel = {
+          ...this.selectedLabel,
+          ...labelData,
+          updatedAt: new Date().toISOString()
+        };
+        
+        // Update in collections and save to localStorage
         const index = this.labels.findIndex(l => l.id === labelId);
         if (index !== -1) {
           this.labels[index] = updatedLabel;
-        }
-      } else if (wasApproved && !isNowApproved) {
-        // Move from approved to pending
-        this.labels = this.labels.filter(l => l.id !== labelId);
-        this.pendingLabels.push(updatedLabel);
-      } else if (!wasApproved && isNowApproved) {
-        // Move from pending to approved
-        this.pendingLabels = this.pendingLabels.filter(l => l.id !== labelId);
-        this.labels.push(updatedLabel);
-      } else {
-        // Update in pending list
-        const index = this.pendingLabels.findIndex(l => l.id === labelId);
-        if (index !== -1) {
-          this.pendingLabels[index] = updatedLabel;
+          this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
+        } else {
+          const pendingIndex = this.pendingLabels.findIndex(l => l.id === labelId);
+          if (pendingIndex !== -1) {
+            this.pendingLabels[pendingIndex] = updatedLabel;
+            this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
+          }
         }
       }
       
@@ -1119,11 +1318,7 @@ class IxMapEditor {
       document.getElementById('ixmap-label-edit-form-container').style.display = 'none';
       
       // Show success notification
-      if (isNowApproved) {
-        this.showNotification('Label updated successfully', 'success');
-      } else {
-        this.showNotification('Label updated and submitted for approval', 'success');
-      }
+      this.showNotification('Label updated and saved to local storage', 'success');
       
     } catch (error) {
       console.error('Error updating label:', error);
@@ -1135,27 +1330,30 @@ class IxMapEditor {
    * Delete a label
    */
   async deleteLabel(labelId) {
-    if (!this.currentUser) {
-      return;
-    }
-    
     try {
-      // Submit to API
-      const response = await fetch(`${this.apiBaseUrl}/labels/${labelId}`, {
-        method: 'DELETE',
-        headers: {
-          'X-Session-ID': this.sessionId || ''
+      try {
+        // Try to submit to API
+        const response = await fetch(`${this.apiBaseUrl}/labels/${labelId}`, {
+          method: 'DELETE',
+          headers: {
+            'X-Session-ID': this.sessionId || ''
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error('API error');
         }
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete label');
+      } catch (apiError) {
+        console.warn('API error during delete, proceeding with local delete:', apiError);
       }
       
-      // Update local data
+      // Update local data regardless of API success
       this.labels = this.labels.filter(l => l.id !== labelId);
       this.pendingLabels = this.pendingLabels.filter(l => l.id !== labelId);
+      
+      // Save updated collections to localStorage
+      this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
+      this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
       
       // Update the map
       this.updateVisibleLabels();
@@ -1167,6 +1365,220 @@ class IxMapEditor {
       console.error('Error deleting label:', error);
       this.showNotification('Failed to delete label: ' + error.message, 'error');
     }
+  }
+  
+  /**
+   * Show manage edits modal with all labels
+   */
+  showManageEditsModal() {
+    const modal = document.getElementById('ixmap-manage-edits-modal');
+    if (!modal) return;
+    
+    // Populate the labels lists
+    this.populateLabelsLists();
+    
+    // Show the modal
+    modal.style.display = 'flex';
+  }
+  
+  /**
+   * Populate labels lists in the manage edits modal
+   */
+  populateLabelsLists() {
+    // Get container elements
+    const allLabelsContainer = document.getElementById('all-labels-container');
+    const approvedLabelsContainer = document.getElementById('approved-labels-container');
+    const pendingLabelsContainer = document.getElementById('pending-labels-container');
+    
+    if (!allLabelsContainer || !approvedLabelsContainer || !pendingLabelsContainer) return;
+    
+    // Clear existing content
+    allLabelsContainer.innerHTML = '';
+    approvedLabelsContainer.innerHTML = '';
+    pendingLabelsContainer.innerHTML = '';
+    
+    // Combine all labels
+    const allLabels = [...this.labels, ...this.pendingLabels];
+    
+    // Create label items and add to appropriate containers
+    if (allLabels.length === 0) {
+      allLabelsContainer.innerHTML = '<div class="no-labels-message">No labels found. Click on the map in editor mode to add labels.</div>';
+    } else {
+      allLabels.forEach(label => {
+        const labelItem = this.createLabelListItem(label);
+        allLabelsContainer.appendChild(labelItem);
+      });
+    }
+    
+    if (this.labels.length === 0) {
+      approvedLabelsContainer.innerHTML = '<div class="no-labels-message">No approved labels found.</div>';
+    } else {
+      this.labels.forEach(label => {
+        const labelItem = this.createLabelListItem(label);
+        approvedLabelsContainer.appendChild(labelItem);
+      });
+    }
+    
+    if (this.pendingLabels.length === 0) {
+      pendingLabelsContainer.innerHTML = '<div class="no-labels-message">No pending labels found.</div>';
+    } else {
+      this.pendingLabels.forEach(label => {
+        const labelItem = this.createLabelListItem(label);
+        pendingLabelsContainer.appendChild(labelItem);
+      });
+    }
+  }
+  
+  /**
+   * Create a label list item for the manage edits modal
+   */
+  createLabelListItem(label) {
+    const item = document.createElement('div');
+    item.className = 'label-item';
+    item.dataset.id = label.id;
+    
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.className = 'label-checkbox';
+    checkbox.dataset.id = label.id;
+    
+    const info = document.createElement('div');
+    info.className = 'label-info';
+    
+    const name = document.createElement('div');
+    name.className = 'label-name';
+    name.textContent = label.name || 'Untitled';
+    
+    const detail = document.createElement('div');
+    detail.className = 'label-detail';
+    
+    // Find category name
+    const category = this.labelCategories.find(c => c.id === label.type);
+    const categoryName = category ? category.name : label.type;
+    
+    detail.textContent = `${categoryName} | Status: ${label.status || 'pending'} | Created: ${new Date(label.createdAt).toLocaleString()}`;
+    
+    info.appendChild(name);
+    info.appendChild(detail);
+    
+    const actions = document.createElement('div');
+    actions.className = 'label-actions';
+    
+    const editButton = document.createElement('button');
+    editButton.className = 'ixmap-button';
+    editButton.textContent = 'Edit';
+    editButton.onclick = () => {
+      document.getElementById('ixmap-manage-edits-modal').style.display = 'none';
+      
+      // Find the label coordinates
+      if (this.map) {
+        // Pan to label location
+        this.map.panTo([label.y, label.x]);
+        
+        // Show edit form
+        setTimeout(() => {
+          this.showLabelEditForm(label);
+        }, 300);
+      }
+    };
+    
+    const deleteButton = document.createElement('button');
+    deleteButton.className = 'ixmap-button danger';
+    deleteButton.textContent = 'Delete';
+    deleteButton.onclick = (e) => {
+      e.stopPropagation();
+      if (confirm(`Are you sure you want to delete the label "${label.name}"?`)) {
+        this.deleteLabel(label.id);
+        item.remove();
+        this.populateLabelsLists(); // Refresh the lists
+      }
+    };
+    
+    actions.appendChild(editButton);
+    actions.appendChild(deleteButton);
+    
+    item.appendChild(checkbox);
+    item.appendChild(info);
+    item.appendChild(actions);
+    
+    return item;
+  }
+  
+  /**
+   * Delete labels in bulk from the manage edits modal
+   */
+  bulkDeleteLabels() {
+    const checkedLabels = document.querySelectorAll('.label-checkbox:checked');
+    
+    if (checkedLabels.length === 0) {
+      this.showNotification('No labels selected for deletion', 'warning');
+      return;
+    }
+    
+    if (confirm(`Are you sure you want to delete ${checkedLabels.length} selected labels?`)) {
+      const labelIds = Array.from(checkedLabels).map(checkbox => checkbox.dataset.id);
+      
+      // Delete each label
+      labelIds.forEach(id => {
+        this.deleteLabel(id);
+      });
+      
+      // Refresh the lists
+      this.populateLabelsLists();
+      
+      this.showNotification(`${labelIds.length} labels deleted successfully`, 'success');
+    }
+  }
+  
+  /**
+   * Clear all labels
+   */
+  clearAllLabels() {
+    // Clear in-memory data
+    this.labels = [];
+    this.pendingLabels = [];
+    
+    // Clear localStorage
+    this.saveLabelsToStorage('ixmaps-approved-labels', []);
+    this.saveLabelsToStorage('ixmaps-pending-labels', []);
+    
+    // Update the map
+    this.updateVisibleLabels();
+    
+    // Refresh the lists
+    this.populateLabelsLists();
+    
+    this.showNotification('All labels have been cleared', 'success');
+  }
+  
+  /**
+   * Export labels as JSON
+   */
+  exportLabels() {
+    const allLabels = [...this.labels, ...this.pendingLabels];
+    
+    if (allLabels.length === 0) {
+      this.showNotification('No labels to export', 'warning');
+      return;
+    }
+    
+    // Create JSON blob
+    const data = JSON.stringify(allLabels, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    // Create download link
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `ixmaps-labels-export-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    this.showNotification('Labels exported successfully', 'success');
   }
   
   /**
