@@ -7,7 +7,7 @@
 class IxMapEditor {
   constructor(options) {
     this.mapContainerId = options.containerId || 'map';
-    this.apiBaseUrl = options.apiBaseUrl || '/api';
+    this.apiBaseUrl = options.apiBaseUrl || '/data/maps/ixmaps/public/api';
     this.sessionId = localStorage.getItem('ixmaps-session-id') || 'dummy-session-id';
     
     // State variables
@@ -126,12 +126,12 @@ class IxMapEditor {
     editorToggle.textContent = 'Enter Editor Mode';
     
     // Admin panel link
-   // const adminLink = document.createElement('a');
-    // adminLink.href = '/public/admin.html';
-    // adminLink.id = 'admin-link';
-    //   adminLink.className = 'editor-button';
-    // adminLink.textContent = 'Admin Panel';
-    // adminLink.style.display = 'inline-block'; // Show admin link since we're using admin privileges
+    const adminLink = document.createElement('a');
+    adminLink.href = '/admin';
+    adminLink.id = 'admin-link';
+    adminLink.className = 'editor-button';
+    adminLink.textContent = 'Admin Panel';
+    adminLink.style.display = 'inline-block'; // Show admin link since we're using admin privileges
     
     // Manage Edits button
     const manageEditsButton = document.createElement('button');

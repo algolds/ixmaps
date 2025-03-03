@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IxMaps - Alpha v2.1</title>
+  <title>IxMaps - Alpha v2.2</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
   <style>
     body, html {
@@ -169,7 +169,7 @@
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-  <!-- Include the modified map editor script with full path -->
+  <!-- Include the modified map editor script -->
   <script src="/data/maps/ixmaps/public/js/map-editor.js"></script>
   <script>
     // Hide map status message after a delay
@@ -190,8 +190,7 @@
     
     // Map configuration helper
     const mapConfig = {
-      // Use full server path for map SVG
-      url: '/data/maps/ixmaps/public/map.svg',
+      url: '/data/maps/ixmaps/public/map.svg', // Simplified path for testing
       
       // SVG dimensions - adjusted dynamically when SVG loads
       svgWidth: 1920,
@@ -210,10 +209,10 @@
         { id: 'water', name: 'Water Body', minZoom: -2 }
       ],
       
-      // Fetch map info from the server with full path
+      // Fetch map info from the server
       fetchMapInfo: async function() {
         try {
-          const response = await fetch('/data/maps/ixmaps/public/api/map-info');
+          const response = await fetch('/api/map-info');
           if (!response.ok) {
             throw new Error(`HTTP error: ${response.status}`);
           }
@@ -365,26 +364,14 @@
         controlsContainer.innerHTML = ''; // Clear existing controls
         
         try {
-          // Try to fetch layer configuration from server with full path
-          let layers = [];
-          try {
-            const response = await fetch('/data/maps/ixmaps/public/api/layers');
-            if (response.ok) {
-              layers = await response.json();
-            } else {
-              throw new Error('Failed to load layers');
-            }
-          } catch (error) {
-            console.log('No layer configuration found, using defaults');
-            // Default layers if server doesn't provide them
-            layers = [
-              { id: 'continents', label: 'Continents', labelTypes: ['continent'], defaultVisible: true },
-              { id: 'countries', label: 'Countries', labelTypes: ['country'], defaultVisible: true },
-              { id: 'capitals', label: 'Capitals', labelTypes: ['capital'], defaultVisible: true },
-              { id: 'waters', label: 'Water Bodies', labelTypes: ['water'], defaultVisible: true },
-              { id: 'terrain', label: 'Terrain', labelTypes: ['terrain'], defaultVisible: true }
-            ];
-          }
+          // Default layers since we're bypassing server for testing
+          const layers = [
+            { id: 'continents', label: 'Continents', labelTypes: ['continent'], defaultVisible: true },
+            { id: 'countries', label: 'Countries', labelTypes: ['country'], defaultVisible: true },
+            { id: 'capitals', label: 'Capitals', labelTypes: ['capital'], defaultVisible: true },
+            { id: 'waters', label: 'Water Bodies', labelTypes: ['water'], defaultVisible: true },
+            { id: 'terrain', label: 'Terrain', labelTypes: ['terrain'], defaultVisible: true }
+          ];
           
           // Group layers by category
           const categories = {
@@ -625,10 +612,9 @@
       });
       
       // Initialize the map editor with the map instance
-      // Use full path for API base URL
       const editor = new IxMapEditor({
         containerId: 'map',
-        apiBaseUrl: '/data/maps/ixmaps/public/api',
+        apiBaseUrl: '/api',
         labelCategories: mapConfig.labelCategories
       });
       

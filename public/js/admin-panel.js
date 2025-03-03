@@ -1,13 +1,17 @@
 /**
  * IxMaps - Admin Panel
  * Interface for moderating map labels
- * Modified to work with local storage instead of API
+ * Modified to work with local storage and correct API paths
  */
 
 class IxMapAdmin {
   constructor(options) {
+    // Fix the API base URL to use the correct project path
     this.apiBaseUrl = options.apiBaseUrl || '/data/maps/ixmaps/public/api';
     this.sessionId = localStorage.getItem('ixmaps-session-id') || 'dummy-session-id';
+    
+    // Log the API base URL for debugging
+    console.log('Using API base URL:', this.apiBaseUrl);
     
     // Use dummy user data - automatically "logged in"
     this.currentUser = {
@@ -403,6 +407,7 @@ class IxMapAdmin {
       // Try API as fallback
       if (this.labels.length === 0) {
         try {
+          console.log('Attempting to fetch labels from API:', `${this.apiBaseUrl}/labels`);
           const response = await fetch(`${this.apiBaseUrl}/labels`, {
             headers: {
               'X-Session-ID': this.sessionId || ''
@@ -411,6 +416,7 @@ class IxMapAdmin {
           
           if (response.ok) {
             this.labels = await response.json();
+            console.log('Labels loaded from API:', this.labels.length);
             
             // Organize by status
             const apiApproved = this.labels.filter(label => label.status === 'approved');
@@ -424,6 +430,7 @@ class IxMapAdmin {
             
             this.showNotification('Labels loaded from API and saved to localStorage', 'info');
           } else {
+            console.warn('API returned an error, using sample data');
             this.showNotification('Creating sample labels for testing', 'info');
             // Create sample data if needed
             this.createSampleLabels();
