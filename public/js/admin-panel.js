@@ -1,17 +1,14 @@
 /**
  * IxMaps - Admin Panel
  * Interface for moderating map labels
- * Modified to work with local storage and correct API paths
+ * Updated to use server API for persistent storage
  */
 
 class IxMapAdmin {
   constructor(options) {
-    // Fix the API base URL to use the correct project path
-    this.apiBaseUrl = options.apiBaseUrl || '/data/maps/ixmaps/public/api';
+    // Set the API base URL
+    this.apiBaseUrl = options.apiBaseUrl || '/data/maps/ixmaps/api';
     this.sessionId = localStorage.getItem('ixmaps-session-id') || 'dummy-session-id';
-    
-    // Log the API base URL for debugging
-    console.log('Using API base URL:', this.apiBaseUrl);
     
     // Use dummy user data - automatically "logged in"
     this.currentUser = {
@@ -27,13 +24,6 @@ class IxMapAdmin {
       'city': 'City',
       'landmark': 'Landmark',
       'water': 'Water Body'
-    };
-    
-    // Storage keys
-    this.STORAGE_KEYS = {
-      APPROVED_LABELS: 'ixmaps-approved-labels',
-      PENDING_LABELS: 'ixmaps-pending-labels',
-      REJECTED_LABELS: 'ixmaps-rejected-labels'
     };
     
     this.labels = [];
@@ -58,7 +48,7 @@ class IxMapAdmin {
       await this.loadLabels();
       
       // Show welcome notification
-      this.showNotification('Admin panel initialized with local storage', 'info');
+      this.showNotification('Admin panel initialized with server API', 'info');
     } catch (error) {
       console.error('Error initializing admin panel:', error);
       this.showNotification('Error initializing admin panel', 'error');
@@ -133,7 +123,7 @@ class IxMapAdmin {
       clearAllButton.style.marginLeft = 'auto';
       
       clearAllButton.addEventListener('click', () => {
-        if (confirm('WARNING: This will delete ALL labels from local storage. This cannot be undone. Continue?')) {
+        if (confirm('WARNING: This will delete ALL labels from the server. This cannot be undone. Continue?')) {
           this.clearAllLabels();
         }
       });
@@ -254,7 +244,7 @@ class IxMapAdmin {
   /**
    * Import labels from JSON
    */
-  importLabelsFromJSON() {
+  async importLabelsFromJSON() {
     try {
       const jsonText = document.getElementById('import-json').value;
       if (!jsonText.trim()) {
@@ -270,54 +260,28 @@ class IxMapAdmin {
       
       const clearExisting = document.getElementById('import-clear-existing').checked;
       
-      // Process and organize labels
-      const approvedLabels = [];
-      const pendingLabels = [];
-      const rejectedLabels = [];
-      
-      importedLabels.forEach(label => {
-        // Ensure each label has required fields
-        const processedLabel = {
-          ...label,
-          id: label.id || Date.now().toString() + Math.random().toString(36).substr(2, 5),
-          status: label.status || 'pending',
-          createdBy: label.createdBy || this.currentUser.id,
-          createdAt: label.createdAt || new Date().toISOString(),
-          updatedAt: label.updatedAt || new Date().toISOString(),
-          history: label.history || []
-        };
-        
-        // Organize by status
-        if (processedLabel.status === 'approved') {
-          approvedLabels.push(processedLabel);
-        } else if (processedLabel.status === 'rejected') {
-          rejectedLabels.push(processedLabel);
-        } else {
-          pendingLabels.push(processedLabel);
-        }
+      // Submit to API
+      const response = await fetch(`${this.apiBaseUrl}/labels/import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-ID': this.sessionId || ''
+        },
+        body: JSON.stringify({
+          labels: importedLabels,
+          clearExisting: clearExisting
+        })
       });
       
-      // Save to localStorage
-      if (clearExisting) {
-        localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify(approvedLabels));
-        localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify(pendingLabels));
-        localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify(rejectedLabels));
-      } else {
-        // Merge with existing labels
-        const existingApproved = this.getLabelsFromStorage(this.STORAGE_KEYS.APPROVED_LABELS) || [];
-        const existingPending = this.getLabelsFromStorage(this.STORAGE_KEYS.PENDING_LABELS) || [];
-        const existingRejected = this.getLabelsFromStorage(this.STORAGE_KEYS.REJECTED_LABELS) || [];
-        
-        localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify([...existingApproved, ...approvedLabels]));
-        localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify([...existingPending, ...pendingLabels]));
-        localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify([...existingRejected, ...rejectedLabels]));
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
       }
       
       // Close import modal
       document.getElementById('import-modal').style.display = 'none';
       
       // Reload labels
-      this.loadLabels();
+      await this.loadLabels();
       
       this.showNotification(`Successfully imported ${importedLabels.length} labels`, 'success');
     } catch (error) {
@@ -364,98 +328,72 @@ class IxMapAdmin {
   /**
    * Clear all labels
    */
-  clearAllLabels() {
-    // Clear localStorage
-    localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify([]));
-    localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify([]));
-    localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify([]));
-    
-    // Reload labels
-    this.loadLabels();
-    
-    this.showNotification('All labels have been cleared', 'success');
-  }
-  
-  /**
-   * Get labels from localStorage
-   */
-  getLabelsFromStorage(key) {
+  async clearAllLabels() {
     try {
-      const data = localStorage.getItem(key);
-      return data ? JSON.parse(data) : [];
+      // Call the API to clear all labels
+      const response = await fetch(`${this.apiBaseUrl}/labels`, {
+        method: 'DELETE',
+        headers: {
+          'X-Session-ID': this.sessionId || ''
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      // Reload labels
+      await this.loadLabels();
+      
+      this.showNotification('All labels have been cleared from the server', 'success');
     } catch (error) {
-      console.error(`Error loading from ${key}:`, error);
-      return [];
+      console.error('Error clearing labels:', error);
+      this.showNotification('Failed to clear labels: ' + error.message, 'error');
     }
   }
   
   /**
-   * Load labels from localStorage
+   * Load labels from server
    */
   async loadLabels() {
     try {
       this.showLoading(true);
       
-      // Load from localStorage
-      const approvedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.APPROVED_LABELS) || [];
-      const pendingLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.PENDING_LABELS) || [];
-      const rejectedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.REJECTED_LABELS) || [];
-      
-      // Combine all labels
-      this.labels = [...approvedLabels, ...pendingLabels, ...rejectedLabels];
-      
-      // Try API as fallback
-      if (this.labels.length === 0) {
-        try {
-          console.log('Attempting to fetch labels from API:', `${this.apiBaseUrl}/labels`);
-          const response = await fetch(`${this.apiBaseUrl}/labels`, {
-            headers: {
-              'X-Session-ID': this.sessionId || ''
-            }
-          });
-          
-          if (response.ok) {
-            this.labels = await response.json();
-            console.log('Labels loaded from API:', this.labels.length);
-            
-            // Organize by status
-            const apiApproved = this.labels.filter(label => label.status === 'approved');
-            const apiPending = this.labels.filter(label => label.status === 'pending');
-            const apiRejected = this.labels.filter(label => label.status === 'rejected');
-            
-            // Save to localStorage
-            localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify(apiApproved));
-            localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify(apiPending));
-            localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify(apiRejected));
-            
-            this.showNotification('Labels loaded from API and saved to localStorage', 'info');
-          } else {
-            console.warn('API returned an error, using sample data');
-            this.showNotification('Creating sample labels for testing', 'info');
-            // Create sample data if needed
-            this.createSampleLabels();
-          }
-        } catch (error) {
-          console.warn('API error, using sample data:', error);
-          this.createSampleLabels();
+      // Call the API to get all labels
+      const response = await fetch(`${this.apiBaseUrl}/labels`, {
+        headers: {
+          'X-Session-ID': this.sessionId || ''
         }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
       }
       
-      // Re-fetch from localStorage to ensure consistent data
-      const storedApprovedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.APPROVED_LABELS) || [];
-      const storedPendingLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.PENDING_LABELS) || [];
-      const storedRejectedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.REJECTED_LABELS) || [];
+      this.labels = await response.json();
+      
+      // Sort labels by status
+      const approvedLabels = this.labels.filter(label => label.status === 'approved');
+      const pendingLabels = this.labels.filter(label => label.status === 'pending');
+      const rejectedLabels = this.labels.filter(label => label.status === 'rejected');
       
       // Render labels
-      this.renderLabels('pending-labels', storedPendingLabels);
-      this.renderLabels('approved-labels', storedApprovedLabels);
-      this.renderLabels('rejected-labels', storedRejectedLabels);
-      this.renderLabels('all-labels', [...storedApprovedLabels, ...storedPendingLabels, ...storedRejectedLabels]);
+      this.renderLabels('pending-labels', pendingLabels);
+      this.renderLabels('approved-labels', approvedLabels);
+      this.renderLabels('rejected-labels', rejectedLabels);
+      this.renderLabels('all-labels', this.labels);
       
+      this.showNotification(`${this.labels.length} labels loaded from server`, 'info');
       this.showLoading(false);
     } catch (error) {
       console.error('Error loading labels:', error);
       this.showNotification('Failed to load labels: ' + error.message, 'error');
+      
+      // If API fails, create sample data for testing
+      if (this.labels.length === 0) {
+        this.createSampleLabels();
+      }
+      
       this.showLoading(false);
     }
   }
@@ -506,16 +444,15 @@ class IxMapAdmin {
       }
     ];
     
-    // Save to localStorage
-    const approved = sampleLabels.filter(label => label.status === 'approved');
-    const pending = sampleLabels.filter(label => label.status === 'pending');
-    const rejected = sampleLabels.filter(label => label.status === 'rejected');
-    
-    localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify(approved));
-    localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify(pending));
-    localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify(rejected));
-    
     this.labels = sampleLabels;
+    
+    // Render labels
+    this.renderLabels('pending-labels', sampleLabels.filter(label => label.status === 'pending'));
+    this.renderLabels('approved-labels', sampleLabels.filter(label => label.status === 'approved'));
+    this.renderLabels('rejected-labels', sampleLabels.filter(label => label.status === 'rejected'));
+    this.renderLabels('all-labels', sampleLabels);
+    
+    this.showNotification('Using sample labels for testing', 'warning');
   }
   
   /**
@@ -794,58 +731,31 @@ class IxMapAdmin {
         return;
       }
       
-      // Find the label in the various collections
-      let label = null;
-      let found = false;
+      // Find the label
+      const label = this.labels.find(l => l.id === labelId);
       
-      // Search in pending labels
-      const pendingLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.PENDING_LABELS);
-      const labelIndex = pendingLabels.findIndex(l => l.id === labelId);
-      
-      if (labelIndex !== -1) {
-        label = pendingLabels[labelIndex];
-        
-        // Add history
-        if (!label.history) {
-          label.history = [];
-        }
-        
-        label.history.push({
-          ...label,
-          updatedBy: this.currentUser.id,
-          updatedAt: new Date().toISOString()
-        });
-        
-        // Update status and notes
-        label.status = type === 'approve' ? 'approved' : 'rejected';
-        label.updatedAt = new Date().toISOString();
-        
-        if (notes) {
-          label.notes = notes;
-        }
-        
-        // Remove from pending
-        pendingLabels.splice(labelIndex, 1);
-        
-        // Add to appropriate collection
-        if (type === 'approve') {
-          const approvedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.APPROVED_LABELS);
-          approvedLabels.push(label);
-          localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify(approvedLabels));
-        } else {
-          const rejectedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.REJECTED_LABELS);
-          rejectedLabels.push(label);
-          localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify(rejectedLabels));
-        }
-        
-        // Update pending labels
-        localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify(pendingLabels));
-        
-        found = true;
+      if (!label) {
+        throw new Error('Label not found');
       }
       
-      if (!found) {
-        throw new Error('Label not found');
+      // Update the label
+      const updateData = {
+        status: type === 'approve' ? 'approved' : 'rejected',
+        notes: notes || label.notes
+      };
+      
+      // Call API to update the label
+      const response = await fetch(`${this.apiBaseUrl}/labels/${labelId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-ID': this.sessionId || ''
+        },
+        body: JSON.stringify(updateData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
       }
       
       // Close modal
@@ -871,73 +781,38 @@ class IxMapAdmin {
     try {
       this.showLoading(true);
       
-      // Find the label in the various collections
-      let label = null;
-      let sourceCollection = null;
-      let sourceIndex = -1;
+      // Find the label
+      const label = this.labels.find(l => l.id === labelId);
       
-      // Check approved labels
-      const approvedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.APPROVED_LABELS);
-      sourceIndex = approvedLabels.findIndex(l => l.id === labelId);
-      
-      if (sourceIndex !== -1) {
-        label = approvedLabels[sourceIndex];
-        sourceCollection = approvedLabels;
-        localStorage.removeItem(this.STORAGE_KEYS.APPROVED_LABELS);
-      } else {
-        // Check rejected labels
-        const rejectedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.REJECTED_LABELS);
-        sourceIndex = rejectedLabels.findIndex(l => l.id === labelId);
-        
-        if (sourceIndex !== -1) {
-          label = rejectedLabels[sourceIndex];
-          sourceCollection = rejectedLabels;
-          localStorage.removeItem(this.STORAGE_KEYS.REJECTED_LABELS);
-        }
-      }
-      
-      if (label) {
-        // Add to history
-        if (!label.history) {
-          label.history = [];
-        }
-        
-        label.history.push({
-          ...label,
-          updatedBy: this.currentUser.id,
-          updatedAt: new Date().toISOString()
-        });
-        
-        // Update status
-        label.status = 'pending';
-        label.updatedAt = new Date().toISOString();
-        label.notes = 'Reset to pending by administrator';
-        
-        // Remove from source collection
-        sourceCollection.splice(sourceIndex, 1);
-        
-        // Save updated source collection
-        if (sourceIndex !== -1) {
-          if (sourceCollection === approvedLabels) {
-            localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify(sourceCollection));
-          } else {
-            localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify(sourceCollection));
-          }
-        }
-        
-        // Add to pending labels
-        const pendingLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.PENDING_LABELS);
-        pendingLabels.push(label);
-        localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify(pendingLabels));
-        
-        // Reload labels
-        await this.loadLabels();
-        
-        // Show success notification
-        this.showNotification('Label reset to pending', 'success');
-      } else {
+      if (!label) {
         throw new Error('Label not found');
       }
+      
+      // Update the label
+      const updateData = {
+        status: 'pending',
+        notes: 'Reset to pending by administrator'
+      };
+      
+      // Call API to update the label
+      const response = await fetch(`${this.apiBaseUrl}/labels/${labelId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-ID': this.sessionId || ''
+        },
+        body: JSON.stringify(updateData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      // Reload labels
+      await this.loadLabels();
+      
+      // Show success notification
+      this.showNotification('Label reset to pending', 'success');
     } catch (error) {
       console.error('Error resetting label status:', error);
       this.showNotification('Failed to reset label status: ' + error.message, 'error');
@@ -953,45 +828,26 @@ class IxMapAdmin {
     try {
       this.showLoading(true);
       
-      // Find and remove from all collections
-      let found = false;
+      // Call API to delete the label
+      const response = await fetch(`${this.apiBaseUrl}/labels/${labelId}`, {
+        method: 'DELETE',
+        headers: {
+          'X-Session-ID': this.sessionId || ''
+        }
+      });
       
-      // Check approved labels
-      const approvedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.APPROVED_LABELS);
-      const approvedIndex = approvedLabels.findIndex(l => l.id === labelId);
-      
-      if (approvedIndex !== -1) {
-        approvedLabels.splice(approvedIndex, 1);
-        localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify(approvedLabels));
-        found = true;
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
       }
       
-      // Check pending labels
-      const pendingLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.PENDING_LABELS);
-      const pendingIndex = pendingLabels.findIndex(l => l.id === labelId);
+      // Remove from local collection
+      this.labels = this.labels.filter(l => l.id !== labelId);
       
-      if (pendingIndex !== -1) {
-        pendingLabels.splice(pendingIndex, 1);
-        localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify(pendingLabels));
-        found = true;
-      }
-      
-      // Check rejected labels
-      const rejectedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.REJECTED_LABELS);
-      const rejectedIndex = rejectedLabels.findIndex(l => l.id === labelId);
-      
-      if (rejectedIndex !== -1) {
-        rejectedLabels.splice(rejectedIndex, 1);
-        localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify(rejectedLabels));
-        found = true;
-      }
-      
-      if (!found) {
-        throw new Error('Label not found');
-      }
-      
-      // Reload labels
-      await this.loadLabels();
+      // Update the UI
+      const labelCards = document.querySelectorAll(`.label-card[data-id="${labelId}"]`);
+      labelCards.forEach(card => {
+        card.remove();
+      });
       
       // Show success notification
       this.showNotification('Label deleted successfully', 'success');

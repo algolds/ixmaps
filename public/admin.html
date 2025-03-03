@@ -5,302 +5,157 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>IxMaps - Admin Panel</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      line-height: 1.6;
-      color: #333;
+    body, html {
       margin: 0;
       padding: 0;
+      height: 100%;
+      font-family: Arial, sans-serif;
       background-color: #f5f5f5;
     }
-    
     header {
       background-color: #2c3e50;
       color: white;
-      padding: 1rem;
+      padding: 15px 20px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    
     header h1 {
       margin: 0;
       font-size: 24px;
     }
-    
     .header-actions {
       display: flex;
       gap: 10px;
     }
-    
-    .container {
+    main {
+      padding: 20px;
       max-width: 1200px;
       margin: 0 auto;
-      padding: 20px;
     }
-    
-    .section {
-      background-color: white;
-      border-radius: 5px;
-      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-    
-    .section-header {
-      border-bottom: 1px solid #eee;
-      padding-bottom: 10px;
-      margin-bottom: 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    
-    .section-header h2 {
-      margin: 0;
-      font-size: 20px;
-    }
-    
-    .btn {
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      background-color: #3498db;
-      color: white;
-      cursor: pointer;
-      text-decoration: none;
-      display: inline-block;
-    }
-    
-    .btn:hover {
-      background-color: #2980b9;
-    }
-    
-    .btn-primary {
-      background-color: #2ecc71;
-    }
-    
-    .btn-primary:hover {
-      background-color: #27ae60;
-    }
-    
-    .btn-danger {
-      background-color: #e74c3c;
-    }
-    
-    .btn-danger:hover {
-      background-color: #c0392b;
-    }
-    
     .tabs {
       display: flex;
       border-bottom: 1px solid #ddd;
       margin-bottom: 20px;
     }
-    
     .tab {
-      padding: 10px 20px;
+      padding: 10px 15px;
       cursor: pointer;
-      border-bottom: 2px solid transparent;
+      border: 1px solid transparent;
+      border-bottom: none;
+      background-color: #f9f9f9;
+      margin-right: 5px;
+      border-radius: 5px 5px 0 0;
     }
-    
     .tab.active {
-      border-bottom-color: #3498db;
+      background-color: white;
+      border-color: #ddd;
+      border-bottom-color: white;
+      position: relative;
+      bottom: -1px;
       font-weight: bold;
     }
-    
     .tab-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 0 5px 5px 5px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      min-height: 400px;
       display: none;
     }
-    
     .tab-content.active {
       display: block;
     }
-    
+    .btn {
+      padding: 8px 12px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn:hover {
+      background-color: #2980b9;
+    }
+    .btn-primary {
+      background-color: #2ecc71;
+    }
+    .btn-primary:hover {
+      background-color: #27ae60;
+    }
+    .btn-danger {
+      background-color: #e74c3c;
+    }
+    .btn-danger:hover {
+      background-color: #c0392b;
+    }
     .label-cards {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 20px;
     }
-    
     .label-card {
-      border: 1px solid #ddd;
+      background-color: white;
       border-radius: 5px;
-      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      padding: 15px;
+      border-left: 5px solid #3498db;
     }
-    
+    .label-card.status-approved {
+      border-left-color: #2ecc71;
+    }
+    .label-card.status-pending {
+      border-left-color: #f39c12;
+    }
+    .label-card.status-rejected {
+      border-left-color: #e74c3c;
+    }
     .label-card-header {
-      background-color: #f8f8f8;
-      padding: 10px 15px;
-      border-bottom: 1px solid #ddd;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 10px;
     }
-    
     .label-card-header h3 {
       margin: 0;
-      font-size: 16px;
+      font-size: 18px;
     }
-    
     .label-category {
-      background-color: #3498db;
-      color: white;
+      background-color: #f1f1f1;
       padding: 3px 8px;
-      border-radius: 3px;
+      border-radius: 12px;
       font-size: 12px;
     }
-    
     .label-content {
-      padding: 15px;
+      font-size: 14px;
     }
-    
     .label-info {
       margin-bottom: 15px;
     }
-    
     .label-info-item {
       display: flex;
       margin-bottom: 5px;
     }
-    
     .label-info-label {
       font-weight: bold;
-      width: 120px;
+      width: 100px;
     }
-    
     .label-actions {
       display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: 15px;
-    }
-    
-    .status-pending {
-      border-left: 4px solid #f39c12;
-    }
-    
-    .status-approved {
-      border-left: 4px solid #2ecc71;
-    }
-    
-    .status-rejected {
-      border-left: 4px solid #e74c3c;
-    }
-    
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0,0,0,0.5);
-      z-index: 1000;
-      justify-content: center;
-      align-items: center;
-    }
-    
-    .modal-content {
-      background-color: white;
-      border-radius: 5px;
-      padding: 20px;
-      width: 90%;
-      max-width: 500px;
-    }
-    
-    .modal-header {
-      display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #eee;
-    }
-    
-    .modal-header h2 {
-      margin: 0;
-      font-size: 20px;
-    }
-    
-    .close-modal {
-      background: none;
-      border: none;
-      font-size: 24px;
-      cursor: pointer;
-    }
-    
-    .form-group {
-      margin-bottom: 15px;
-    }
-    
-    .form-group label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: bold;
-    }
-    
-    .form-group textarea {
-      width: 100%;
-      padding: 8px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      resize: vertical;
-      min-height: 80px;
-    }
-    
-    .form-actions {
-      display: flex;
-      justify-content: flex-end;
       gap: 10px;
-      margin-top: 20px;
     }
-    
-    .loading {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(255,255,255,0.8);
-      z-index: 2000;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-    }
-    
-    .loading-spinner {
-      border: 5px solid #f3f3f3;
-      border-top: 5px solid #3498db;
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      animation: spin 2s linear infinite;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    .loading-text {
-      margin-top: 10px;
-      font-weight: bold;
-    }
-    
     .empty-state {
       text-align: center;
-      padding: 40px 0;
+      padding: 50px 0;
       color: #777;
     }
-    
     .empty-state i {
       font-size: 48px;
-      margin-bottom: 10px;
       display: block;
+      margin-bottom: 10px;
     }
-    
     .notification {
       position: fixed;
       bottom: 20px;
@@ -308,73 +163,139 @@
       padding: 15px 20px;
       border-radius: 5px;
       color: white;
-      z-index: 2000;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
-      opacity: 1;
+      z-index: 9999;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
       transition: opacity 0.5s;
     }
-    
-    .notification.success {
-      background-color: #2ecc71;
-    }
-    
-    .notification.error {
-      background-color: #e74c3c;
-    }
-    
-    .notification.warning {
-      background-color: #f39c12;
-    }
-    
     .notification.info {
       background-color: #3498db;
     }
-    
+    .notification.success {
+      background-color: #2ecc71;
+    }
+    .notification.warning {
+      background-color: #f39c12;
+    }
+    .notification.error {
+      background-color: #e74c3c;
+    }
     .notification.fadeout {
       opacity: 0;
     }
-    
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background-color: white;
+      border-radius: 5px;
+      width: 90%;
+      max-width: 500px;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+    }
+    .modal-header {
+      padding: 15px 20px;
+      border-bottom: 1px solid #f5f5f5;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+    .close-modal {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #777;
+    }
+    .modal-body {
+      padding: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    .form-group textarea, 
+    .form-group input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
     .history-toggle {
       background: none;
       border: none;
       color: #3498db;
+      font-size: 14px;
+      padding: 5px 0;
       cursor: pointer;
+      text-align: left;
+      margin-top: 10px;
       display: block;
       width: 100%;
-      text-align: left;
-      padding: 10px 15px;
     }
-    
-    .history-toggle:hover {
-      background-color: #f5f5f5;
-    }
-    
     .label-history {
-      display: none;
-      padding: 0 15px 15px;
-      font-size: 13px;
-    }
-    
-    .history-item {
-      border-top: 1px solid #eee;
-      padding-top: 10px;
       margin-top: 10px;
+      border-top: 1px solid #f5f5f5;
+      padding-top: 10px;
+      font-size: 13px;
+      display: none;
     }
-    
+    .history-item {
+      margin-bottom: 10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #f5f5f5;
+      display: flex;
+    }
     .history-date {
+      width: 180px;
       color: #777;
-      font-size: 12px;
-      margin-bottom: 5px;
     }
-    
-    #import-json.highlight {
-      border: 2px dashed #3498db;
-      background-color: #f0f8ff;
+    #loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
     }
-    
-    #import-modal .modal-content {
-      width: 90%;
-      max-width: 800px;
+    .loading-spinner {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid #3498db;
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
     }
   </style>
 </head>
@@ -383,67 +304,46 @@
     <h1>IxMaps Admin Panel</h1>
     <div class="header-actions">
       <button id="refresh-button" class="btn">Refresh</button>
-      <button id="export-all-button" class="btn">Export All Labels</button>
-      <button id="import-button" class="btn">Import Labels</button>
-      <a href="/" class="btn">Return to Map</a>
+      <a href="/" class="btn">Back to Map</a>
     </div>
   </header>
-  
-  <div class="container">
-    <div class="section">
-      <div class="section-header">
-        <h2>Label Moderation</h2>
-        <button id="clear-all-button" class="btn btn-danger">Clear All Labels</button>
-      </div>
-      
-      <div class="tabs">
-        <div class="tab active" data-tab="pending">Pending</div>
-        <div class="tab" data-tab="approved">Approved</div>
-        <div class="tab" data-tab="rejected">Rejected</div>
-        <div class="tab" data-tab="all">All Labels</div>
-      </div>
-      
-      <div id="pending-tab" class="tab-content active">
-        <div id="pending-labels" class="label-cards">
-          <!-- Pending labels will be loaded here -->
-          <div class="empty-state">
-            <i>📝</i>
-            <p>No pending labels found.</p>
-          </div>
-        </div>
-      </div>
-      
-      <div id="approved-tab" class="tab-content">
-        <div id="approved-labels" class="label-cards">
-          <!-- Approved labels will be loaded here -->
-        </div>
-      </div>
-      
-      <div id="rejected-tab" class="tab-content">
-        <div id="rejected-labels" class="label-cards">
-          <!-- Rejected labels will be loaded here -->
-        </div>
-      </div>
-      
-      <div id="all-tab" class="tab-content">
-        <div id="all-labels" class="label-cards">
-          <!-- All labels will be loaded here -->
-        </div>
-      </div>
+
+  <main>
+    <div class="tabs">
+      <div class="tab active" data-tab="all">All Labels</div>
+      <div class="tab" data-tab="pending">Pending Approval</div>
+      <div class="tab" data-tab="approved">Approved</div>
+      <div class="tab" data-tab="rejected">Rejected</div>
     </div>
-  </div>
-  
-  <!-- Modal for approve/reject actions -->
-  <div class="modal" id="action-modal">
+
+    <div id="all-tab" class="tab-content active">
+      <div id="all-labels" class="label-cards"></div>
+    </div>
+
+    <div id="pending-tab" class="tab-content">
+      <div id="pending-labels" class="label-cards"></div>
+    </div>
+
+    <div id="approved-tab" class="tab-content">
+      <div id="approved-labels" class="label-cards"></div>
+    </div>
+
+    <div id="rejected-tab" class="tab-content">
+      <div id="rejected-labels" class="label-cards"></div>
+    </div>
+  </main>
+
+  <!-- Action Modal -->
+  <div id="action-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
         <h2 id="modal-title">Approve Label</h2>
         <button class="close-modal">&times;</button>
       </div>
-      <div id="modal-body">
+      <div class="modal-body">
         <div class="form-group">
-          <label for="action-notes">Notes:</label>
-          <textarea id="action-notes" placeholder="Optional notes about this action..."></textarea>
+          <label for="action-notes">Notes (reason for approval/rejection):</label>
+          <textarea id="action-notes" rows="4"></textarea>
         </div>
         <div class="form-actions">
           <button id="confirm-action" class="btn btn-primary">Confirm</button>
@@ -453,973 +353,17 @@
     </div>
   </div>
 
-  <!-- Import modal -->
-  <div class="modal" id="import-modal">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2>Import Labels</h2>
-        <button class="close-modal">&times;</button>
-      </div>
-      <div id="import-modal-body">
-        <div class="form-group">
-          <label for="import-json">Paste JSON data or drag and drop file:</label>
-          <textarea id="import-json" rows="10" placeholder='Paste JSON here or drop a file...'></textarea>
-        </div>
-        <div class="form-group">
-          <label>
-            <input type="checkbox" id="import-clear-existing" checked>
-            Clear existing labels before import
-          </label>
-        </div>
-        <div class="form-actions">
-          <button id="confirm-import" class="btn btn-primary">Import Data</button>
-          <button class="btn close-modal">Cancel</button>
-        </div>
-      </div>
-    </div>
-  </div>
-  
-  <!-- Loading spinner -->
-  <div class="loading" id="loading">
+  <!-- Loading Indicator -->
+  <div id="loading" style="display: none;">
     <div class="loading-spinner"></div>
-    <div class="loading-text">Loading...</div>
   </div>
-  
-  <script>
-    /**
-     * IxMaps Admin Panel - Standalone Version
-     * Uses only localStorage, no API dependencies
-     */
-    class IxMapAdmin {
-      constructor(options) {
-        // Use dummy user data - automatically "logged in"
-        this.currentUser = {
-          id: 'admin-1',
-          username: 'Admin',
-          isAdmin: true
-        };
-        
-        this.categoryLabels = options.categoryLabels || {
-          'continent': 'Continent',
-          'country': 'Country',
-          'capital': 'Capital',
-          'city': 'City',
-          'landmark': 'Landmark',
-          'water': 'Water Body'
-        };
-        
-        // Storage keys
-        this.STORAGE_KEYS = {
-          APPROVED_LABELS: 'ixmaps-approved-labels',
-          PENDING_LABELS: 'ixmaps-pending-labels',
-          REJECTED_LABELS: 'ixmaps-rejected-labels'
-        };
-        
-        this.labels = [];
-        this.init();
-      }
-      
-      /**
-       * Initialize the admin panel
-       */
-      async init() {
-        try {
-          // Set up event listeners
-          this.initEventListeners();
-          
-          // Update header with admin info
-          const headerTitle = document.querySelector('header h1');
-          if (headerTitle) {
-            headerTitle.textContent = `IxMaps Admin Panel - ${this.currentUser.username}`;
-          }
-          
-          // Load labels
-          await this.loadLabels();
-          
-          // Show welcome notification
-          this.showNotification('Admin panel initialized with local storage', 'info');
-        } catch (error) {
-          console.error('Error initializing admin panel:', error);
-          this.showNotification('Error initializing admin panel', 'error');
-        }
-      }
-      
-      /**
-       * Initialize event listeners
-       */
-      initEventListeners() {
-        // Refresh button
-        const refreshButton = document.getElementById('refresh-button');
-        if (refreshButton) {
-          refreshButton.addEventListener('click', () => this.loadLabels());
-        }
-        
-        // Tab switching
-        const tabs = document.querySelectorAll('.tab');
-        tabs.forEach(tab => {
-          tab.addEventListener('click', () => {
-            const tabId = tab.dataset.tab;
-            
-            // Update active tab
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            
-            // Update active content
-            const tabContents = document.querySelectorAll('.tab-content');
-            tabContents.forEach(content => content.classList.remove('active'));
-            document.getElementById(`${tabId}-tab`).classList.add('active');
-          });
-        });
-        
-        // Modal close
-        const closeModalButtons = document.querySelectorAll('.close-modal');
-        closeModalButtons.forEach(button => {
-          button.addEventListener('click', () => {
-            document.querySelectorAll('.modal').forEach(modal => {
-              modal.style.display = 'none';
-            });
-          });
-        });
-        
-        // Export all button
-        const exportButton = document.getElementById('export-all-button');
-        if (exportButton) {
-          exportButton.addEventListener('click', () => this.exportAllLabels());
-        }
-        
-        // Import button
-        const importButton = document.getElementById('import-button');
-        if (importButton) {
-          importButton.addEventListener('click', () => this.showImportModal());
-        }
-        
-        // Clear all button
-        const clearAllButton = document.getElementById('clear-all-button');
-        if (clearAllButton) {
-          clearAllButton.addEventListener('click', () => {
-            if (confirm('WARNING: This will delete ALL labels from local storage. This cannot be undone. Continue?')) {
-              this.clearAllLabels();
-            }
-          });
-        }
-        
-        // Set up drag and drop for import
-        const importTextarea = document.getElementById('import-json');
-        if (importTextarea) {
-          ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            importTextarea.addEventListener(eventName, preventDefaults, false);
-          });
-          
-          function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-          }
-          
-          ['dragenter', 'dragover'].forEach(eventName => {
-            importTextarea.addEventListener(eventName, () => {
-              importTextarea.classList.add('highlight');
-            }, false);
-          });
-          
-          ['dragleave', 'drop'].forEach(eventName => {
-            importTextarea.addEventListener(eventName, () => {
-              importTextarea.classList.remove('highlight');
-            }, false);
-          });
-          
-          importTextarea.addEventListener('drop', (e) => {
-            const file = e.dataTransfer.files[0];
-            if (file) {
-              const reader = new FileReader();
-              reader.onload = (event) => {
-                importTextarea.value = event.target.result;
-              };
-              reader.readAsText(file);
-            }
-          }, false);
-        }
-        
-        // Set up confirm import button
-        const confirmImportButton = document.getElementById('confirm-import');
-        if (confirmImportButton) {
-          confirmImportButton.addEventListener('click', () => {
-            this.importLabelsFromJSON();
-          });
-        }
-      }
-      
-      /**
-       * Show import modal
-       */
-      showImportModal() {
-        const modal = document.getElementById('import-modal');
-        if (modal) {
-          modal.style.display = 'flex';
-        }
-      }
-      
-      /**
-       * Import labels from JSON
-       */
-      importLabelsFromJSON() {
-        try {
-          const jsonText = document.getElementById('import-json').value;
-          if (!jsonText.trim()) {
-            this.showNotification('Please provide JSON data to import', 'warning');
-            return;
-          }
-          
-          const importedLabels = JSON.parse(jsonText);
-          if (!Array.isArray(importedLabels)) {
-            this.showNotification('Invalid format. Expected an array of labels.', 'error');
-            return;
-          }
-          
-          const clearExisting = document.getElementById('import-clear-existing').checked;
-          
-          // Process and organize labels
-          const approvedLabels = [];
-          const pendingLabels = [];
-          const rejectedLabels = [];
-          
-          importedLabels.forEach(label => {
-            // Ensure each label has required fields
-            const processedLabel = {
-              ...label,
-              id: label.id || Date.now().toString() + Math.random().toString(36).substr(2, 5),
-              status: label.status || 'pending',
-              createdBy: label.createdBy || this.currentUser.id,
-              createdAt: label.createdAt || new Date().toISOString(),
-              updatedAt: label.updatedAt || new Date().toISOString(),
-              history: label.history || []
-            };
-            
-            // Organize by status
-            if (processedLabel.status === 'approved') {
-              approvedLabels.push(processedLabel);
-            } else if (processedLabel.status === 'rejected') {
-              rejectedLabels.push(processedLabel);
-            } else {
-              pendingLabels.push(processedLabel);
-            }
-          });
-          
-          // Save to localStorage
-          if (clearExisting) {
-            localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify(approvedLabels));
-            localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify(pendingLabels));
-            localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify(rejectedLabels));
-          } else {
-            // Merge with existing labels
-            const existingApproved = this.getLabelsFromStorage(this.STORAGE_KEYS.APPROVED_LABELS) || [];
-            const existingPending = this.getLabelsFromStorage(this.STORAGE_KEYS.PENDING_LABELS) || [];
-            const existingRejected = this.getLabelsFromStorage(this.STORAGE_KEYS.REJECTED_LABELS) || [];
-            
-            localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify([...existingApproved, ...approvedLabels]));
-            localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify([...existingPending, ...pendingLabels]));
-            localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify([...existingRejected, ...rejectedLabels]));
-          }
-          
-          // Close import modal
-          document.getElementById('import-modal').style.display = 'none';
-          
-          // Reload labels
-          this.loadLabels();
-          
-          this.showNotification(`Successfully imported ${importedLabels.length} labels`, 'success');
-        } catch (error) {
-          console.error('Error importing labels:', error);
-          this.showNotification('Failed to import labels: ' + error.message, 'error');
-        }
-      }
-      
-      /**
-       * Export all labels
-       */
-      exportAllLabels() {
-        try {
-          const allLabels = [...this.labels];
-          
-          if (allLabels.length === 0) {
-            this.showNotification('No labels to export', 'warning');
-            return;
-          }
-          
-          // Create JSON blob
-          const data = JSON.stringify(allLabels, null, 2);
-          const blob = new Blob([data], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          
-          // Create download link
-          const link = document.createElement('a');
-          link.href = url;
-          link.download = `ixmaps-labels-export-${new Date().toISOString().slice(0, 10)}.json`;
-          document.body.appendChild(link);
-          link.click();
-          
-          // Clean up
-          document.body.removeChild(link);
-          URL.revokeObjectURL(url);
-          
-          this.showNotification('Labels exported successfully', 'success');
-        } catch (error) {
-          console.error('Error exporting labels:', error);
-          this.showNotification('Failed to export labels: ' + error.message, 'error');
-        }
-      }
-      
-      /**
-       * Clear all labels
-       */
-      clearAllLabels() {
-        // Clear localStorage
-        localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify([]));
-        localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify([]));
-        localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify([]));
-        
-        // Reload labels
-        this.loadLabels();
-        
-        this.showNotification('All labels have been cleared', 'success');
-      }
-      
-      /**
-       * Get labels from localStorage
-       */
-      getLabelsFromStorage(key) {
-        try {
-          const data = localStorage.getItem(key);
-          return data ? JSON.parse(data) : [];
-        } catch (error) {
-          console.error(`Error loading from ${key}:`, error);
-          return [];
-        }
-      }
-      
-      /**
-       * Load labels from localStorage
-       */
-      async loadLabels() {
-        try {
-          this.showLoading(true);
-          
-          // Load from localStorage
-          const approvedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.APPROVED_LABELS) || [];
-          const pendingLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.PENDING_LABELS) || [];
-          const rejectedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.REJECTED_LABELS) || [];
-          
-          // Combine all labels
-          this.labels = [...approvedLabels, ...pendingLabels, ...rejectedLabels];
-          
-          // Create sample data if needed
-          if (this.labels.length === 0) {
-            this.createSampleLabels();
-            
-            // Re-fetch after creating samples
-            const storedApprovedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.APPROVED_LABELS) || [];
-            const storedPendingLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.PENDING_LABELS) || [];
-            const storedRejectedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.REJECTED_LABELS) || [];
-            
-            this.labels = [...storedApprovedLabels, ...storedPendingLabels, ...storedRejectedLabels];
-          }
-          
-          // Render labels
-          this.renderLabels('pending-labels', pendingLabels);
-          this.renderLabels('approved-labels', approvedLabels);
-          this.renderLabels('rejected-labels', rejectedLabels);
-          this.renderLabels('all-labels', this.labels);
-          
-          this.showLoading(false);
-        } catch (error) {
-          console.error('Error loading labels:', error);
-          this.showNotification('Failed to load labels: ' + error.message, 'error');
-          this.showLoading(false);
-        }
-      }
-      
-      /**
-       * Create sample labels if none exist
-       */
-      createSampleLabels() {
-        const sampleLabels = [
-          {
-            id: 'sample-1',
-            name: 'Example Continent',
-            type: 'continent',
-            minZoom: -3,
-            status: 'approved',
-            createdBy: 'admin-1',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            x: 0.25,
-            y: 0.25,
-            notes: 'Sample approved label'
-          },
-          {
-            id: 'sample-2',
-            name: 'Example Country',
-            type: 'country',
-            minZoom: -1,
-            status: 'pending',
-            createdBy: 'user-1',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            x: 0.5,
-            y: 0.5,
-            notes: 'Sample pending label'
-          },
-          {
-            id: 'sample-3',
-            name: 'Example City',
-            type: 'city',
-            minZoom: 1,
-            status: 'rejected',
-            createdBy: 'user-1',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            x: 0.75,
-            y: 0.75,
-            notes: 'Sample rejected label'
-          }
-        ];
-        
-        // Save to localStorage
-        const approved = sampleLabels.filter(label => label.status === 'approved');
-        const pending = sampleLabels.filter(label => label.status === 'pending');
-        const rejected = sampleLabels.filter(label => label.status === 'rejected');
-        
-        localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify(approved));
-        localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify(pending));
-        localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify(rejected));
-        
-        this.labels = sampleLabels;
-        this.showNotification('Created sample labels', 'info');
-      }
-      
-      /**
-       * Render labels in a container
-       */
-      renderLabels(containerId, labels) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        
-        container.innerHTML = '';
-        
-        if (!labels || labels.length === 0) {
-          container.innerHTML = `
-            <div class="empty-state">
-              <i>📝</i>
-              <p>No labels found.</p>
-            </div>
-          `;
-          return;
-        }
-        
-        // Sort labels by created date (newest first)
-        const sortedLabels = [...labels].sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateB - dateA;
-        });
-        
-        // Create cards for each label
-        sortedLabels.forEach(label => {
-          const card = this.createLabelCard(label);
-          container.appendChild(card);
-        });
-      }
-      
-      /**
-       * Create a label card element
-       */
-      createLabelCard(label) {
-        const card = document.createElement('div');
-        card.className = `label-card status-${label.status || 'pending'}`;
-        card.dataset.id = label.id;
-        
-        // Label header
-        const header = document.createElement('div');
-        header.className = 'label-card-header';
-        
-        const labelName = document.createElement('h3');
-        labelName.textContent = label.name || 'Untitled';
-        
-        const category = document.createElement('span');
-        category.className = 'label-category';
-        category.textContent = this.categoryLabels[label.type] || label.type || 'Unknown';
-        
-        header.appendChild(labelName);
-        header.appendChild(category);
-        
-        // Label content
-        const content = document.createElement('div');
-        content.className = 'label-content';
-        
-        // Format creation date
-        const createdDate = label.createdAt ? new Date(label.createdAt).toLocaleString() : 'Unknown';
-        
-        // Label details
-        content.innerHTML = `
-          <div class="label-info">
-            <div class="label-info-item">
-              <div class="label-info-label">Coordinates:</div>
-              <div>${label.y.toFixed(2)}, ${label.x.toFixed(2)}</div>
-            </div>
-            <div class="label-info-item">
-              <div class="label-info-label">Min Zoom:</div>
-              <div>${label.minZoom || 'Not set'}</div>
-            </div>
-            <div class="label-info-item">
-              <div class="label-info-label">Status:</div>
-              <div>${label.status || 'pending'}</div>
-            </div>
-            <div class="label-info-item">
-              <div class="label-info-label">Created:</div>
-              <div>${createdDate}</div>
-            </div>
-            ${label.notes ? `
-              <div class="label-info-item">
-                <div class="label-info-label">Notes:</div>
-                <div>${label.notes}</div>
-              </div>
-            ` : ''}
-          </div>
-        `;
-        
-        // Label actions
-        const actions = document.createElement('div');
-        actions.className = 'label-actions';
-        
-        if (label.status === 'pending') {
-          // Approve button
-          const approveButton = document.createElement('button');
-          approveButton.className = 'btn btn-primary';
-          approveButton.textContent = 'Approve';
-          approveButton.onclick = () => this.showApproveModal(label.id);
-          
-          // Reject button
-          const rejectButton = document.createElement('button');
-          rejectButton.className = 'btn btn-danger';
-          rejectButton.textContent = 'Reject';
-          rejectButton.onclick = () => this.showRejectModal(label.id);
-          
-          actions.appendChild(approveButton);
-          actions.appendChild(rejectButton);
-        } else {
-          // Reset button
-          const resetButton = document.createElement('button');
-          resetButton.className = 'btn';
-          resetButton.textContent = 'Reset to Pending';
-          resetButton.onclick = () => this.resetLabelStatus(label.id);
-          
-          actions.appendChild(resetButton);
-        }
-        
-        // View on map button
-        const viewButton = document.createElement('button');
-        viewButton.className = 'btn';
-        viewButton.textContent = 'View on Map';
-        viewButton.onclick = () => {
-          // Store coordinates in sessionStorage for the map to pick up
-          sessionStorage.setItem('ixmaps-view-label', JSON.stringify({
-            x: label.x,
-            y: label.y,
-            zoom: Math.max(label.minZoom || 0, 0)
-          }));
-          window.location.href = '/';
-        };
-        
-        actions.appendChild(viewButton);
-        
-        // Delete button
-        const deleteButton = document.createElement('button');
-        deleteButton.className = 'btn btn-danger';
-        deleteButton.textContent = 'Delete';
-        deleteButton.onclick = () => {
-          if (confirm(`Are you sure you want to delete the label "${label.name}"?`)) {
-            this.deleteLabel(label.id);
-          }
-        };
-        
-        actions.appendChild(deleteButton);
-        
-        content.appendChild(actions);
-        
-        // Build card
-        card.appendChild(header);
-        card.appendChild(content);
-        
-        // Add history toggle if available
-        if (label.history && label.history.length > 0) {
-          const historyToggle = document.createElement('button');
-          historyToggle.className = 'history-toggle';
-          historyToggle.textContent = 'Show History';
-          historyToggle.dataset.labelId = label.id;
-          
-          const historyContainer = document.createElement('div');
-          historyContainer.className = 'label-history';
-          historyContainer.id = `history-${label.id}`;
-          
-          // Add history items
-          const sortedHistory = [...label.history].sort((a, b) => {
-            const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-            const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-            return dateB - dateA; // Newest first
-          });
-          
-          sortedHistory.forEach(historyItem => {
-            const itemDate = historyItem.updatedAt ? new Date(historyItem.updatedAt).toLocaleString() : 'Unknown';
-            
-            const historyEntry = document.createElement('div');
-            historyEntry.className = 'history-item';
-            historyEntry.innerHTML = `
-              <div class="history-date">${itemDate}</div>
-              <div>
-                <strong>Status:</strong> ${historyItem.status || 'Unknown'}<br>
-                <strong>Text:</strong> ${historyItem.name || 'Unknown'}<br>
-                <strong>Category:</strong> ${this.categoryLabels[historyItem.type] || historyItem.type || 'Unknown'}<br>
-                ${historyItem.notes ? `<strong>Notes:</strong> ${historyItem.notes}<br>` : ''}
-              </div>
-            `;
-            
-            historyContainer.appendChild(historyEntry);
-          });
-          
-          // Toggle history visibility
-          historyToggle.addEventListener('click', function() {
-            const historyDiv = document.getElementById(`history-${this.dataset.labelId}`);
-            if (historyDiv.style.display === 'block') {
-              historyDiv.style.display = 'none';
-              this.textContent = 'Show History';
-            } else {
-              historyDiv.style.display = 'block';
-              this.textContent = 'Hide History';
-            }
-          });
-          
-          card.appendChild(historyToggle);
-          card.appendChild(historyContainer);
-        }
-        
-        return card;
-      }
-      
-      /**
-       * Show approve modal
-       */
-      showApproveModal(labelId) {
-        this.currentAction = {
-          type: 'approve',
-          labelId: labelId
-        };
-        
-        const modal = document.getElementById('action-modal');
-        const modalTitle = document.getElementById('modal-title');
-        const actionNotes = document.getElementById('action-notes');
-        const confirmButton = document.getElementById('confirm-action');
-        
-        modalTitle.textContent = 'Approve Label';
-        actionNotes.value = '';
-        confirmButton.textContent = 'Confirm Approval';
-        confirmButton.className = 'btn btn-primary';
-        
-        // Set up confirmation
-        confirmButton.onclick = () => this.confirmAction();
-        
-        modal.style.display = 'flex';
-      }
-      
-      /**
-       * Show reject modal
-       */
-      showRejectModal(labelId) {
-        this.currentAction = {
-          type: 'reject',
-          labelId: labelId
-        };
-        
-        const modal = document.getElementById('action-modal');
-        const modalTitle = document.getElementById('modal-title');
-        const actionNotes = document.getElementById('action-notes');
-        const confirmButton = document.getElementById('confirm-action');
-        
-        modalTitle.textContent = 'Reject Label';
-        actionNotes.value = '';
-        confirmButton.textContent = 'Confirm Rejection';
-        confirmButton.className = 'btn btn-danger';
-        
-        // Set up confirmation
-        confirmButton.onclick = () => this.confirmAction();
-        
-        modal.style.display = 'flex';
-      }
-      
-      /**
-       * Confirm the current action
-       */
-      async confirmAction() {
-        if (!this.currentAction) return;
-        
-        try {
-          this.showLoading(true);
-          
-          const { type, labelId } = this.currentAction;
-          const notes = document.getElementById('action-notes').value;
-          
-          if (type === 'reject' && !notes) {
-            this.showNotification('Please provide a reason for rejection', 'warning');
-            this.showLoading(false);
-            return;
-          }
-          
-          // Find the label in the various collections
-          let label = null;
-          let found = false;
-          
-          // Search in pending labels
-          const pendingLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.PENDING_LABELS);
-          const labelIndex = pendingLabels.findIndex(l => l.id === labelId);
-          
-          if (labelIndex !== -1) {
-            label = pendingLabels[labelIndex];
-            
-            // Add history
-            if (!label.history) {
-              label.history = [];
-            }
-            
-            label.history.push({
-              ...label,
-              updatedBy: this.currentUser.id,
-              updatedAt: new Date().toISOString()
-            });
-            
-            // Update status and notes
-            label.status = type === 'approve' ? 'approved' : 'rejected';
-            label.updatedAt = new Date().toISOString();
-            
-            if (notes) {
-              label.notes = notes;
-            }
-            
-            // Remove from pending
-            pendingLabels.splice(labelIndex, 1);
-            
-            // Add to appropriate collection
-            if (type === 'approve') {
-              const approvedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.APPROVED_LABELS);
-              approvedLabels.push(label);
-              localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify(approvedLabels));
-            } else {
-              const rejectedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.REJECTED_LABELS);
-              rejectedLabels.push(label);
-              localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify(rejectedLabels));
-            }
-            
-            // Update pending labels
-            localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify(pendingLabels));
-            
-            found = true;
-          }
-          
-          if (!found) {
-            throw new Error('Label not found');
-          }
-          
-          // Close modal
-          document.getElementById('action-modal').style.display = 'none';
-          
-          // Reload labels
-          await this.loadLabels();
-          
-          // Show success notification
-          this.showNotification(`Label ${type}d successfully`, 'success');
-        } catch (error) {
-          console.error(`Error ${this.currentAction.type}ing label:`, error);
-          this.showNotification(`Failed to ${this.currentAction.type} label: ${error.message}`, 'error');
-        } finally {
-          this.showLoading(false);
-        }
-      }
-      
-      /**
-       * Reset a label status to pending
-       */
-      async resetLabelStatus(labelId) {
-        try {
-          this.showLoading(true);
-          
-          // Find the label in the various collections
-          let label = null;
-          let sourceCollection = null;
-          let sourceIndex = -1;
-          
-          // Check approved labels
-          const approvedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.APPROVED_LABELS);
-          sourceIndex = approvedLabels.findIndex(l => l.id === labelId);
-          
-          if (sourceIndex !== -1) {
-            label = approvedLabels[sourceIndex];
-            sourceCollection = approvedLabels;
-            
-            // Remove from source collection
-            approvedLabels.splice(sourceIndex, 1);
-            localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify(approvedLabels));
-          } else {
-            // Check rejected labels
-            const rejectedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.REJECTED_LABELS);
-            sourceIndex = rejectedLabels.findIndex(l => l.id === labelId);
-            
-            if (sourceIndex !== -1) {
-              label = rejectedLabels[sourceIndex];
-              sourceCollection = rejectedLabels;
-              
-              // Remove from source collection
-              rejectedLabels.splice(sourceIndex, 1);
-              localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify(rejectedLabels));
-            }
-          }
-          
-          if (label) {
-            // Add to history
-            if (!label.history) {
-              label.history = [];
-            }
-            
-            label.history.push({
-              ...label,
-              updatedBy: this.currentUser.id,
-              updatedAt: new Date().toISOString()
-            });
-            
-            // Update status
-            label.status = 'pending';
-            label.updatedAt = new Date().toISOString();
-            label.notes = 'Reset to pending by administrator';
-            
-            // Add to pending labels
-            const pendingLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.PENDING_LABELS);
-            pendingLabels.push(label);
-            localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify(pendingLabels));
-            
-            // Reload labels
-            await this.loadLabels();
-            
-            // Show success notification
-            this.showNotification('Label reset to pending', 'success');
-          } else {
-            throw new Error('Label not found');
-          }
-        } catch (error) {
-          console.error('Error resetting label status:', error);
-          this.showNotification('Failed to reset label status: ' + error.message, 'error');
-        } finally {
-          this.showLoading(false);
-        }
-      }
-      
-      /**
-       * Delete a label
-       */
-      async deleteLabel(labelId) {
-        try {
-          this.showLoading(true);
-          
-          // Find and remove from all collections
-          let found = false;
-          
-          // Check approved labels
-          const approvedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.APPROVED_LABELS);
-          const approvedIndex = approvedLabels.findIndex(l => l.id === labelId);
-          
-          if (approvedIndex !== -1) {
-            approvedLabels.splice(approvedIndex, 1);
-            localStorage.setItem(this.STORAGE_KEYS.APPROVED_LABELS, JSON.stringify(approvedLabels));
-            found = true;
-          }
-          
-          // Check pending labels
-          const pendingLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.PENDING_LABELS);
-          const pendingIndex = pendingLabels.findIndex(l => l.id === labelId);
-          
-          if (pendingIndex !== -1) {
-            pendingLabels.splice(pendingIndex, 1);
-            localStorage.setItem(this.STORAGE_KEYS.PENDING_LABELS, JSON.stringify(pendingLabels));
-            found = true;
-          }
-          
-          // Check rejected labels
-          const rejectedLabels = this.getLabelsFromStorage(this.STORAGE_KEYS.REJECTED_LABELS);
-          const rejectedIndex = rejectedLabels.findIndex(l => l.id === labelId);
-          
-          if (rejectedIndex !== -1) {
-            rejectedLabels.splice(rejectedIndex, 1);
-            localStorage.setItem(this.STORAGE_KEYS.REJECTED_LABELS, JSON.stringify(rejectedLabels));
-            found = true;
-          }
-          
-          if (!found) {
-            throw new Error('Label not found');
-          }
-          
-          // Reload labels
-          await this.loadLabels();
-          
-          // Show success notification
-          this.showNotification('Label deleted successfully', 'success');
-        } catch (error) {
-          console.error('Error deleting label:', error);
-          this.showNotification('Failed to delete label: ' + error.message, 'error');
-        } finally {
-          this.showLoading(false);
-        }
-      }
-      
-      /**
-       * Show loading indicator
-       */
-      showLoading(isLoading) {
-        const loadingElement = document.getElementById('loading');
-        if (loadingElement) {
-          loadingElement.style.display = isLoading ? 'flex' : 'none';
-        }
-      }
-      
-      /**
-       * Show a notification
-       */
-      showNotification(message, type = 'info') {
-        // Remove any existing notifications
-        const existingNotifications = document.querySelectorAll('.notification');
-        existingNotifications.forEach(notification => {
-          if (document.body.contains(notification)) {
-            document.body.removeChild(notification);
-          }
-        });
-        
-        // Create notification element
-        const notification = document.createElement('div');
-        notification.className = `notification ${type}`;
-        notification.textContent = message;
-        
-        // Add to body
-        document.body.appendChild(notification);
-        
-        // Remove after a delay
-        setTimeout(() => {
-          notification.classList.add('fadeout');
-          setTimeout(() => {
-            if (document.body.contains(notification)) {
-              document.body.removeChild(notification);
-            }
-          }, 500);
-        }, 3000);
-      }
-    }
 
-    // Initialize the admin panel
+  <script src="/data/maps/ixmaps/public/js/admin-panel.js"></script>
+  <script>
     document.addEventListener('DOMContentLoaded', function() {
+      // Initialize admin panel
       const admin = new IxMapAdmin({
+        apiBaseUrl: '/api',
         categoryLabels: {
           'continent': 'Continent',
           'country': 'Country',

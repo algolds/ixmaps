@@ -1,67 +1,113 @@
-// server.js - Enhanced with IxMaps interactive editor features
+/**
+ * IxMaps - Server Implementation
+ * Express server that provides API endpoints for map data
+ * Uses JSON files for persistent storage
+ */
+
 const express = require('express');
-const path = require('path');
 const fs = require('fs');
+const path = require('path');
+const bodyParser = require('body-parser');
+
 const app = express();
-const port = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;
 
-// Map path configuration
-const MAP_CONFIG = {
-  basePath: path.resolve(__dirname, 'data/maps/ixmaps/public'),
-  filename: 'map.svg',
-  getFullPath: function() {
-    return path.join(this.basePath, this.filename);
+// Configuration for JSON file paths
+// These are one directory up from the server script
+const CONFIG = {
+  LABELS_FILE: path.join(__dirname, '..', 'labels.json'),
+  LAYERS_FILE: path.join(__dirname, '..', 'layers.json'),
+  LEGEND_FILE: path.join(__dirname, '..', 'legend.json'),
+  SETTINGS_FILE: path.join(__dirname, '..', 'settings.json'),
+  USERS_FILE: path.join(__dirname, '..', 'users.json')
+};
+
+// Middleware
+app.use(bodyParser.json());
+
+// Serve static files from the public directory
+// You can adjust this path if needed
+app.use('/data/maps/ixmaps/public', express.static(path.join(__dirname, 'public')));
+
+// Redirect root to index.html
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Redirect /admin to admin.html
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', '/public/admin.html'));
+});
+
+// --- JSON File Utilities ---
+
+/**
+ * Initialize a JSON file with default content if it doesn't exist
+ */
+function initializeJsonFile(filePath, defaultContent) {
+  try {
+    if (!fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, JSON.stringify(defaultContent, null, 2));
+      console.log(`Initialized ${path.basename(filePath)} with default content`);
+    }
+  } catch (error) {
+    console.error(`Error initializing ${path.basename(filePath)}:`, error);
   }
-};
+}
 
-// File paths for data storage
-const DATA_PATHS = {
-  labels: path.join(__dirname, 'data', 'labels.json'),
-  settings: path.join(__dirname, 'data', 'settings.json'),
-  layers: path.join(__dirname, 'data', 'layers.json'),
-  legend: path.join(__dirname, 'data', 'legend.json'),
-  users: path.join(__dirname, 'data', 'users.json') // Add user data for mock authentication
-};
-
-// Default settings
-const DEFAULT_SETTINGS = {
-  defaultZoom: 0,
-  svgWidth: 1920,
-  svgHeight: 1080,
-  bgColor: '#D5FFFF'
-};
-
-// Default layer configuration
-const DEFAULT_LAYERS = [
-  { 
-    id: 'continents', 
-    label: 'Continents', 
-    labelTypes: ['continent'], 
-    defaultVisible: true 
-  },
-  { 
-    id: 'countries', 
-    label: 'Countries', 
-    labelTypes: ['country'], 
-    defaultVisible: true 
-  },
-  { 
-    id: 'capitals', 
-    label: 'Capitals', 
-    labelTypes: ['capital'], 
-    defaultVisible: true 
-  },
-  { 
-    id: 'waters', 
-    label: 'Water Bodies', 
-    labelTypes: ['water'], 
-    defaultVisible: true 
+/**
+ * Read data from a JSON file
+ */
+function readJsonFile(filePath, defaultContent = {}) {
+  try {
+    if (!fs.existsSync(filePath)) {
+      initializeJsonFile(filePath, defaultContent);
+    }
+    const data = fs.readFileSync(filePath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    console.error(`Error reading ${path.basename(filePath)}:`, error);
+    return defaultContent;
   }
-];
+}
 
-// Default legend configuration
-const DEFAULT_LEGEND = {
-  schemes: {
+/**
+ * Write data to a JSON file
+ */
+function writeJsonFile(filePath, data) {
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error(`Error writing ${path.basename(filePath)}:`, error);
+    return false;
+  }
+}
+
+// --- Initialize files with default content ---
+
+// Initialize labels.json
+initializeJsonFile(CONFIG.LABELS_FILE, {
+  approved: [],
+  pending: [],
+  rejected: []
+});
+
+// Initialize layers.json
+initializeJsonFile(CONFIG.LAYERS_FILE, {
+  layers: [
+    { id: 'continents', label: 'Continents', labelTypes: ['continent'], defaultVisible: true },
+    { id: 'countries', label: 'Countries', labelTypes: ['country'], defaultVisible: true },
+    { id: 'capitals', label: 'Capitals', labelTypes: ['capital'], defaultVisible: true },
+    { id: 'cities', label: 'Cities', labelTypes: ['city'], defaultVisible: true },
+    { id: 'landmarks', label: 'Landmarks', labelTypes: ['landmark'], defaultVisible: true },
+    { id: 'waters', label: 'Water Bodies', labelTypes: ['water'], defaultVisible: true }
+  ]
+});
+
+// Initialize legend.json
+initializeJsonFile(CONFIG.LEGEND_FILE, {
+  colorSchemes: {
     topographic: {
       name: "Topographic",
       sections: [
@@ -85,412 +131,198 @@ const DEFAULT_LEGEND = {
       ]
     }
   },
-  defaultScheme: "topographic"
-};
+  currentScheme: "topographic"
+});
 
-// Default user data for mock authentication
-const DEFAULT_USERS = [
-  {
-    id: "admin-1",
-    username: "admin",
-    isAdmin: true
-  },
-  {
-    id: "user-1",
-    username: "user",
-    isAdmin: false
+// Initialize settings.json
+initializeJsonFile(CONFIG.SETTINGS_FILE, {
+  mapSettings: {
+    title: "IxMaps",
+    version: "2.3.0",
+    svgPath: "/data/maps/ixmaps/public/map.svg",
+    defaultZoom: 0,
+    enableWrapping: true
   }
-];
+});
 
-// Create all necessary directories
-function ensureDirectoriesExist() {
-  const directories = [
-    path.join(__dirname, 'data'),
-    path.join(__dirname, 'public'),
-    path.join(__dirname, 'public', 'js'),
-    path.join(__dirname, 'public', 'css'),
-    MAP_CONFIG.basePath
-  ];
-  
-  directories.forEach(dir => {
-    if (!fs.existsSync(dir)) {
-      try {
-        fs.mkdirSync(dir, { recursive: true });
-        console.log(`Created directory: ${dir}`);
-      } catch (error) {
-        console.error(`Failed to create directory ${dir}: ${error.message}`);
-      }
-    }
-  });
-}
-
-// Initialize empty files if they don't exist
-function createInitialFiles() {
-  const initialFiles = [
+// Initialize users.json
+initializeJsonFile(CONFIG.USERS_FILE, {
+  users: [
     {
-      path: DATA_PATHS.labels,
-      content: []
+      id: "admin-1",
+      username: "Admin",
+      passwordHash: "dummy-hash", // In a real app, use proper hashing
+      isAdmin: true
     },
     {
-      path: DATA_PATHS.settings,
-      content: DEFAULT_SETTINGS
-    },
-    {
-      path: DATA_PATHS.layers,
-      content: DEFAULT_LAYERS
-    },
-    {
-      path: DATA_PATHS.legend,
-      content: DEFAULT_LEGEND
-    },
-    {
-      path: DATA_PATHS.users,
-      content: DEFAULT_USERS
+      id: "user-1",
+      username: "Guest Editor",
+      passwordHash: "dummy-hash", // In a real app, use proper hashing
+      isAdmin: false
     }
-  ];
-  
-  initialFiles.forEach(file => {
-    if (!fs.existsSync(file.path)) {
-      try {
-        fs.writeFileSync(file.path, JSON.stringify(file.content, null, 2), 'utf8');
-        console.log(`Created initial file: ${file.path}`);
-      } catch (error) {
-        console.error(`Failed to create file ${file.path}: ${error.message}`);
-      }
-    }
-  });
-}
+  ],
+  sessions: {}
+});
 
-// Helper functions for file operations
-const fileHelpers = {
-  readJsonFile: function(filePath, defaultContent = []) {
-    try {
-      if (!fs.existsSync(filePath)) {
-        fs.writeFileSync(filePath, JSON.stringify(defaultContent, null, 2), 'utf8');
-        console.log(`Created new file: ${filePath}`);
-        return defaultContent;
-      }
-      
-      const content = fs.readFileSync(filePath, 'utf8');
-      return JSON.parse(content);
-    } catch (error) {
-      console.error(`Error reading/creating file ${filePath}:`, error);
-      return defaultContent;
-    }
-  },
-  
-  writeJsonFile: function(filePath, content) {
-    try {
-      fs.writeFileSync(filePath, JSON.stringify(content, null, 2), 'utf8');
-      return true;
-    } catch (error) {
-      console.error(`Error writing to file ${filePath}:`, error);
-      return false;
-    }
-  }
-};
+// --- API Endpoints ---
 
-// Startup verification
-function performStartupChecks() {
-  console.log('\n=== STARTUP CHECKS ===');
-  
-  // Check data directory
-  console.log(`Data directory: ${fs.existsSync(path.join(__dirname, 'data')) ? '✅ EXISTS' : '❌ MISSING'}`);
-  
-  // Check map directory
-  console.log(`Map directory: ${fs.existsSync(MAP_CONFIG.basePath) ? '✅ EXISTS' : '❌ MISSING'}`);
-  
-  // Check map file
-  console.log(`Map file: ${fs.existsSync(MAP_CONFIG.getFullPath()) ? '✅ EXISTS' : '❌ MISSING'}`);
-  
-  // Check critical data files
-  console.log(`Labels file: ${fs.existsSync(DATA_PATHS.labels) ? '✅ EXISTS' : '❌ MISSING'}`);
-  console.log(`Settings file: ${fs.existsSync(DATA_PATHS.settings) ? '✅ EXISTS' : '❌ MISSING'}`);
-  console.log(`Layers file: ${fs.existsSync(DATA_PATHS.layers) ? '✅ EXISTS' : '❌ MISSING'}`);
-  console.log(`Legend file: ${fs.existsSync(DATA_PATHS.legend) ? '✅ EXISTS' : '❌ MISSING'}`);
-  console.log(`Users file: ${fs.existsSync(DATA_PATHS.users) ? '✅ EXISTS' : '❌ MISSING'}`);
-  
-  // Check public directory
-  console.log(`Public directory: ${fs.existsSync(path.join(__dirname, 'public')) ? '✅ EXISTS' : '❌ MISSING'}`);
-  
-  // Check HTML files
-  console.log(`Admin HTML: ${fs.existsSync(path.join(__dirname, 'public', 'admin.html')) ? '✅ EXISTS' : '❌ MISSING'}`);
-  console.log(`Index HTML: ${fs.existsSync(path.join(__dirname, 'public', 'index.html')) ? '✅ EXISTS' : '❌ MISSING'}`);
-  
-  // Check JavaScript files
-  console.log(`Map Editor JS: ${fs.existsSync(path.join(__dirname, 'public', 'js', 'map-editor.js')) ? '✅ EXISTS' : '❌ MISSING'}`);
-  console.log(`Admin Panel JS: ${fs.existsSync(path.join(__dirname, 'public', 'js', 'admin-panel.js')) ? '✅ EXISTS' : '❌ MISSING'}`);
-  
-  console.log('======================\n');
-}
+// --- Labels API ---
 
-// Initialize directories and files
-ensureDirectoriesExist();
-createInitialFiles();
-
-// Configure Express
-app.use(express.json({ limit: '50mb' })); // Increased limit for larger label sets
-
-// Serve static files from the 'public' directory with proper MIME types
-app.use(express.static(path.join(__dirname, 'public'), {
-  setHeaders: (res, path) => {
-    if (path.endsWith('.svg')) {
-      res.setHeader('Content-Type', 'image/svg+xml');
-    }
-  }
-}));
-
-// Simple session management for mock authentication
-const sessions = {};
-
-// Basic authentication middleware
-const authMiddleware = (req, res, next) => {
-  const sessionId = req.headers['x-session-id'];
-  
-  if (sessionId && sessions[sessionId]) {
-    req.user = sessions[sessionId];
-    next();
-  } else {
-    res.status(401).json({ error: 'Authentication required' });
-  }
-};
-
-// Admin authentication middleware
-const adminMiddleware = (req, res, next) => {
-  const sessionId = req.headers['x-session-id'];
-  
-  if (sessionId && sessions[sessionId] && sessions[sessionId].isAdmin) {
-    req.user = sessions[sessionId];
-    next();
-  } else {
-    res.status(403).json({ error: 'Admin privileges required' });
-  }
-};
-
-// Special route for the map SVG
-app.get('/map.svg', (req, res) => {
+// Get all labels
+app.get('/data/maps/ixmaps/api/labels', (req, res) => {
   try {
-    const mapPath = MAP_CONFIG.getFullPath();
-    console.log(`Request for map.svg - Checking path: ${mapPath}`);
+    const labels = readJsonFile(CONFIG.LABELS_FILE, { approved: [], pending: [], rejected: [] });
     
-    if (fs.existsSync(mapPath)) {
-      console.log('Map file found, serving...');
-      res.setHeader('Content-Type', 'image/svg+xml');
-      res.sendFile(mapPath);
-    } else {
-      console.error(`Map file not found at: ${mapPath}`);
-      res.status(404).send('Map file not found');
-    }
+    // Combine all labels and add status property
+    const allLabels = [
+      ...labels.approved.map(label => ({ ...label, status: 'approved' })),
+      ...labels.pending.map(label => ({ ...label, status: 'pending' })),
+      ...labels.rejected.map(label => ({ ...label, status: 'rejected' }))
+    ];
+    
+    res.json(allLabels);
   } catch (error) {
-    console.error(`Error serving map: ${error.message}`);
-    res.status(500).send('Error serving map file');
+    console.error('Error retrieving labels:', error);
+    res.status(500).json({ error: 'Failed to retrieve labels' });
   }
 });
 
-// API endpoints for map info
-app.get('/api/map-info', (req, res) => {
+// Get labels by status
+app.get('/data/maps/ixmaps/api/labels/:status', (req, res) => {
   try {
-    console.log('Received request for /api/map-info');
-    let fileInfo = {};
+    const { status } = req.params;
+    const labels = readJsonFile(CONFIG.LABELS_FILE, { approved: [], pending: [], rejected: [] });
     
-    if (fs.existsSync(MAP_CONFIG.getFullPath())) {
-      const stats = fs.statSync(MAP_CONFIG.getFullPath());
-      fileInfo = {
-        exists: true,
-        path: MAP_CONFIG.getFullPath(),
-        size: stats.size,
-        lastModified: stats.mtime
-      };
-      console.log('Map info:', fileInfo);
-    } else {
-      fileInfo = {
-        exists: false,
-        path: MAP_CONFIG.getFullPath()
-      };
-      console.log('Map not found:', fileInfo);
+    if (!labels[status]) {
+      return res.status(400).json({ error: 'Invalid status' });
     }
     
-    res.json(fileInfo);
+    res.json(labels[status]);
   } catch (error) {
-    console.error(`Error in /api/map-info: ${error.message}`);
-    res.status(500).json({ error: error.message });
+    console.error(`Error retrieving ${req.params.status} labels:`, error);
+    res.status(500).json({ error: `Failed to retrieve ${req.params.status} labels` });
   }
 });
 
-// Authentication endpoints
-app.post('/api/auth/login', (req, res) => {
+// Create a new label
+app.post('/api/labels', (req, res) => {
   try {
-    const { username, password } = req.body;
+    const labelData = req.body;
     
-    // In a real app, validate username/password against database
-    // For this demo, we'll just look up the username and auto-authenticate
-    const users = fileHelpers.readJsonFile(DATA_PATHS.users, DEFAULT_USERS);
-    const user = users.find(u => u.username === username);
-    
-    if (user) {
-      // Create a session
-      const sessionId = Math.random().toString(36).substring(2, 15);
-      sessions[sessionId] = {
-        id: user.id,
-        username: user.username,
-        isAdmin: user.isAdmin
-      };
-      
-      res.json({
-        success: true,
-        sessionId: sessionId,
-        user: {
-          username: user.username,
-          isAdmin: user.isAdmin
-        }
-      });
-    } else {
-      res.status(401).json({
-        success: false,
-        message: 'Invalid credentials'
-      });
-    }
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
-  }
-});
-
-app.get('/api/auth/status', (req, res) => {
-  const sessionId = req.headers['x-session-id'];
-  
-  if (sessionId && sessions[sessionId]) {
-    res.json({
-      authenticated: true,
-      username: sessions[sessionId].username,
-      userId: sessions[sessionId].id,
-      isAdmin: sessions[sessionId].isAdmin
-    });
-  } else {
-    res.json({
-      authenticated: false
-    });
-  }
-});
-
-app.post('/api/auth/logout', (req, res) => {
-  const sessionId = req.headers['x-session-id'];
-  
-  if (sessionId && sessions[sessionId]) {
-    delete sessions[sessionId];
-  }
-  
-  res.json({ success: true });
-});
-
-// Enhanced API endpoints for labels with approval workflow
-app.get('/api/labels', (req, res) => {
-  try {
-    console.log('Received request for /api/labels');
-    const labels = fileHelpers.readJsonFile(DATA_PATHS.labels, []);
-    
-    // Determine which labels to return based on authentication
-    const sessionId = req.headers['x-session-id'];
-    const user = sessionId ? sessions[sessionId] : null;
-    
-    let filteredLabels;
-    if (user) {
-      // Return approved labels and user's own pending labels
-      filteredLabels = labels.filter(label => 
-        label.status === 'approved' || 
-        (label.status === 'pending' && label.createdBy === user.id)
-      );
-    } else {
-      // Return only approved labels for unauthenticated users
-      filteredLabels = labels.filter(label => label.status === 'approved');
+    // Validate required fields
+    if (!labelData.name || !labelData.type || 
+        typeof labelData.x !== 'number' || typeof labelData.y !== 'number') {
+      return res.status(400).json({ error: 'Missing required fields' });
     }
     
-    res.json(filteredLabels);
-  } catch (error) {
-    console.error('Error reading labels file:', error);
-    res.status(500).json({ error: 'Failed to load labels' });
-  }
-});
-
-app.post('/api/labels', authMiddleware, (req, res) => {
-  try {
-    const labels = fileHelpers.readJsonFile(DATA_PATHS.labels, []);
-    
-    // Add the new label with enhanced properties
+    // Create new label with default properties
     const newLabel = {
-      id: Date.now().toString(), // Simple unique ID
-      ...req.body,
-      status: 'pending', // All new labels start as pending
-      createdBy: req.user.id,
+      id: `label-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+      name: labelData.name,
+      type: labelData.type,
+      x: labelData.x,
+      y: labelData.y,
+      minZoom: labelData.minZoom || 0,
+      notes: labelData.notes || '',
+      createdBy: labelData.createdBy || 'unknown',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       history: []
     };
     
-    // Auto-approve if user is admin
-    if (req.user.isAdmin) {
-      newLabel.status = 'approved';
-    }
+    // Read current labels
+    const labels = readJsonFile(CONFIG.LABELS_FILE, { approved: [], pending: [], rejected: [] });
     
-    labels.push(newLabel);
+    // Add to appropriate collection based on status (default to pending unless admin)
+    const status = labelData.isAdmin ? 'approved' : 'pending';
     
-    // Save the updated labels
-    if (fileHelpers.writeJsonFile(DATA_PATHS.labels, labels)) {
-      res.status(201).json(newLabel);
+    labels[status].push(newLabel);
+    
+    // Save to file
+    if (writeJsonFile(CONFIG.LABELS_FILE, labels)) {
+      // Return the created label with status
+      res.status(201).json({ ...newLabel, status });
     } else {
-      throw new Error('Failed to write labels file');
+      res.status(500).json({ error: 'Failed to save label' });
     }
   } catch (error) {
-    console.error('Error adding label:', error);
-    res.status(500).json({ error: 'Failed to add label' });
+    console.error('Error creating label:', error);
+    res.status(500).json({ error: 'Failed to create label' });
   }
 });
 
-app.put('/api/labels/:id', authMiddleware, (req, res) => {
+// Update a label
+app.put('/data/maps/ixmaps/api/labels/:id', (req, res) => {
   try {
-    const labels = fileHelpers.readJsonFile(DATA_PATHS.labels, []);
+    const { id } = req.params;
+    const updateData = req.body;
     
-    const labelIndex = labels.findIndex(label => label.id === req.params.id);
+    // Read current labels
+    const labels = readJsonFile(CONFIG.LABELS_FILE, { approved: [], pending: [], rejected: [] });
     
-    if (labelIndex === -1) {
+    // Find the label in all collections
+    let found = false;
+    let foundInStatus;
+    let labelIndex;
+    
+    // Check each collection
+    for (const status of ['approved', 'pending', 'rejected']) {
+      labelIndex = labels[status].findIndex(label => label.id === id);
+      if (labelIndex !== -1) {
+        foundInStatus = status;
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
       return res.status(404).json({ error: 'Label not found' });
     }
     
-    // Check permissions
-    if (labels[labelIndex].createdBy !== req.user.id && !req.user.isAdmin) {
-      return res.status(403).json({ error: 'Not authorized to update this label' });
+    // Get the label
+    const label = labels[foundInStatus][labelIndex];
+    
+    // Add current state to history before updating
+    if (!label.history) {
+      label.history = [];
     }
     
-    // Save current state to history
-    if (!labels[labelIndex].history) {
-      labels[labelIndex].history = [];
-    }
-    
-    labels[labelIndex].history.push({
-      ...labels[labelIndex],
-      updatedBy: req.user.id,
+    label.history.push({
+      ...label,
       updatedAt: new Date().toISOString()
     });
     
-    // Update the label
+    // Update fields
     const updatedLabel = {
-      ...labels[labelIndex],
-      ...req.body,
+      ...label,
+      name: updateData.name || label.name,
+      type: updateData.type || label.type,
+      minZoom: updateData.minZoom ?? label.minZoom,
+      notes: updateData.notes ?? label.notes,
       updatedAt: new Date().toISOString()
     };
     
-    // If it was already approved and user is not admin, set back to pending
-    if (labels[labelIndex].status === 'approved' && !req.user.isAdmin) {
-      updatedLabel.status = 'pending';
+    // Handle status change if requested
+    let newStatus = updateData.status || foundInStatus;
+    
+    // If status changed, move to new collection
+    if (newStatus !== foundInStatus) {
+      // Remove from old collection
+      labels[foundInStatus].splice(labelIndex, 1);
+      
+      // Add to new collection
+      labels[newStatus].push(updatedLabel);
+    } else {
+      // Update in current collection
+      labels[foundInStatus][labelIndex] = updatedLabel;
     }
     
-    labels[labelIndex] = updatedLabel;
-    
-    // Save the updated labels
-    if (fileHelpers.writeJsonFile(DATA_PATHS.labels, labels)) {
-      res.json(updatedLabel);
+    // Save to file
+    if (writeJsonFile(CONFIG.LABELS_FILE, labels)) {
+      // Return the updated label with status
+      res.json({ ...updatedLabel, status: newStatus });
     } else {
-      throw new Error('Failed to write labels file');
+      res.status(500).json({ error: 'Failed to update label' });
     }
   } catch (error) {
     console.error('Error updating label:', error);
@@ -498,29 +330,37 @@ app.put('/api/labels/:id', authMiddleware, (req, res) => {
   }
 });
 
-app.delete('/api/labels/:id', authMiddleware, (req, res) => {
+// Delete a label
+app.delete('/data/maps/ixmaps/api/labels/:id', (req, res) => {
   try {
-    const labels = fileHelpers.readJsonFile(DATA_PATHS.labels, []);
+    const { id } = req.params;
     
-    const labelIndex = labels.findIndex(label => label.id === req.params.id);
+    // Read current labels
+    const labels = readJsonFile(CONFIG.LABELS_FILE, { approved: [], pending: [], rejected: [] });
     
-    if (labelIndex === -1) {
+    // Find the label in all collections
+    let found = false;
+    
+    // Check each collection
+    for (const status of ['approved', 'pending', 'rejected']) {
+      const labelIndex = labels[status].findIndex(label => label.id === id);
+      if (labelIndex !== -1) {
+        // Remove from collection
+        labels[status].splice(labelIndex, 1);
+        found = true;
+        break;
+      }
+    }
+    
+    if (!found) {
       return res.status(404).json({ error: 'Label not found' });
     }
     
-    // Check permissions
-    if (labels[labelIndex].createdBy !== req.user.id && !req.user.isAdmin) {
-      return res.status(403).json({ error: 'Not authorized to delete this label' });
-    }
-    
-    // Remove the label
-    labels.splice(labelIndex, 1);
-    
-    // Save the updated labels
-    if (fileHelpers.writeJsonFile(DATA_PATHS.labels, labels)) {
-      res.json({ message: 'Label deleted successfully' });
+    // Save to file
+    if (writeJsonFile(CONFIG.LABELS_FILE, labels)) {
+      res.json({ success: true });
     } else {
-      throw new Error('Failed to write labels file');
+      res.status(500).json({ error: 'Failed to delete label' });
     }
   } catch (error) {
     console.error('Error deleting label:', error);
@@ -528,36 +368,61 @@ app.delete('/api/labels/:id', authMiddleware, (req, res) => {
   }
 });
 
-// Bulk import labels endpoint
-app.post('/api/labels/import', adminMiddleware, (req, res) => {
+// Bulk operations
+
+// Import labels (admin only)
+app.post('/data/maps/ixmaps/api/labels/import', (req, res) => {
   try {
-    const importedLabels = req.body;
+    const { labels: importedLabels, clearExisting } = req.body;
     
     if (!Array.isArray(importedLabels)) {
       return res.status(400).json({ error: 'Invalid format. Expected an array of labels.' });
     }
     
-    // Process and validate imported labels
-    const processedLabels = importedLabels.map(label => {
-      // Ensure each label has required fields
+    // Read current labels
+    let labels = readJsonFile(CONFIG.LABELS_FILE, { approved: [], pending: [], rejected: [] });
+    
+    // Clear existing if requested
+    if (clearExisting) {
+      labels = { approved: [], pending: [], rejected: [] };
+    }
+    
+    // Process and categorize imported labels
+    importedLabels.forEach(label => {
+      const status = label.status || 'pending';
+      
+      // Remove status property as it's implied by the collection
+      const labelCopy = { ...label };
+      delete labelCopy.status;
+      
+      // Ensure label has required fields
       const processedLabel = {
-        ...label,
-        id: label.id || Date.now().toString() + Math.random().toString(36).substr(2, 5),
-        status: label.status || 'approved', // Default to approved for bulk imports
-        createdBy: label.createdBy || req.user.id,
-        createdAt: label.createdAt || new Date().toISOString(),
-        updatedAt: label.updatedAt || new Date().toISOString(),
-        history: label.history || []
+        id: labelCopy.id || `label-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        name: labelCopy.name || 'Untitled',
+        type: labelCopy.type || 'unknown',
+        x: labelCopy.x || 0,
+        y: labelCopy.y || 0,
+        minZoom: labelCopy.minZoom || 0,
+        createdBy: labelCopy.createdBy || 'unknown',
+        createdAt: labelCopy.createdAt || new Date().toISOString(),
+        updatedAt: labelCopy.updatedAt || new Date().toISOString(),
+        history: labelCopy.history || [],
+        notes: labelCopy.notes || ''
       };
       
-      return processedLabel;
+      // Add to appropriate collection
+      if (status === 'approved' || status === 'rejected') {
+        labels[status].push(processedLabel);
+      } else {
+        labels.pending.push(processedLabel);
+      }
     });
     
-    // Save the imported labels
-    if (fileHelpers.writeJsonFile(DATA_PATHS.labels, processedLabels)) {
-      res.json({ message: `Successfully imported ${processedLabels.length} labels` });
+    // Save to file
+    if (writeJsonFile(CONFIG.LABELS_FILE, labels)) {
+      res.json({ success: true, count: importedLabels.length });
     } else {
-      throw new Error('Failed to write labels file');
+      res.status(500).json({ error: 'Failed to import labels' });
     }
   } catch (error) {
     console.error('Error importing labels:', error);
@@ -565,137 +430,111 @@ app.post('/api/labels/import', adminMiddleware, (req, res) => {
   }
 });
 
-// Admin endpoints for label moderation
-app.get('/api/admin/pending', adminMiddleware, (req, res) => {
+// Clear all labels (admin only)
+app.delete('/data/maps/ixmaps/api/labels', (req, res) => {
   try {
-    const labels = fileHelpers.readJsonFile(DATA_PATHS.labels, []);
-    const pendingLabels = labels.filter(label => label.status === 'pending');
-    res.json({ labels: pendingLabels });
-  } catch (error) {
-    console.error('Error reading pending labels:', error);
-    res.status(500).json({ error: 'Failed to load pending labels' });
-  }
-});
-
-app.post('/api/admin/approve/:id', adminMiddleware, (req, res) => {
-  try {
-    const labels = fileHelpers.readJsonFile(DATA_PATHS.labels, []);
-    const labelIndex = labels.findIndex(label => label.id === req.params.id);
+    // Reset to empty collections
+    const emptyLabels = { approved: [], pending: [], rejected: [] };
     
-    if (labelIndex === -1) {
-      return res.status(404).json({ error: 'Label not found' });
-    }
-    
-    // Add to history
-    if (!labels[labelIndex].history) {
-      labels[labelIndex].history = [];
-    }
-    
-    labels[labelIndex].history.push({
-      ...labels[labelIndex],
-      updatedBy: req.user.id,
-      updatedAt: new Date().toISOString()
-    });
-    
-    // Update status
-    labels[labelIndex].status = 'approved';
-    labels[labelIndex].updatedAt = new Date().toISOString();
-    
-    if (req.body.notes) {
-      labels[labelIndex].notes = req.body.notes;
-    }
-    
-    // Save the updated labels
-    if (fileHelpers.writeJsonFile(DATA_PATHS.labels, labels)) {
-      res.json({ message: 'Label approved', label: labels[labelIndex] });
+    // Save to file
+    if (writeJsonFile(CONFIG.LABELS_FILE, emptyLabels)) {
+      res.json({ success: true });
     } else {
-      throw new Error('Failed to write labels file');
+      res.status(500).json({ error: 'Failed to clear labels' });
     }
   } catch (error) {
-    console.error('Error approving label:', error);
-    res.status(500).json({ error: 'Failed to approve label' });
+    console.error('Error clearing labels:', error);
+    res.status(500).json({ error: 'Failed to clear labels' });
   }
 });
 
-app.post('/api/admin/reject/:id', adminMiddleware, (req, res) => {
+// --- Layers API ---
+
+// Get all layers
+app.get('/data/maps/ixmaps/api/layers', (req, res) => {
   try {
-    const labels = fileHelpers.readJsonFile(DATA_PATHS.labels, []);
-    const labelIndex = labels.findIndex(label => label.id === req.params.id);
+    const layersData = readJsonFile(CONFIG.LAYERS_FILE, { layers: [] });
+    res.json(layersData.layers);
+  } catch (error) {
+    console.error('Error retrieving layers:', error);
+    res.status(500).json({ error: 'Failed to retrieve layers' });
+  }
+});
+
+// Update layers
+app.put('/data/maps/ixmaps/api/layers', (req, res) => {
+  try {
+    const { layers } = req.body;
     
-    if (labelIndex === -1) {
-      return res.status(404).json({ error: 'Label not found' });
+    if (!Array.isArray(layers)) {
+      return res.status(400).json({ error: 'Invalid format. Expected an array of layers.' });
     }
     
-    // Add to history
-    if (!labels[labelIndex].history) {
-      labels[labelIndex].history = [];
-    }
-    
-    labels[labelIndex].history.push({
-      ...labels[labelIndex],
-      updatedBy: req.user.id,
-      updatedAt: new Date().toISOString()
-    });
-    
-    // Update status
-    labels[labelIndex].status = 'rejected';
-    labels[labelIndex].updatedAt = new Date().toISOString();
-    
-    if (req.body.notes) {
-      labels[labelIndex].notes = req.body.notes;
-    }
-    
-    // Save the updated labels
-    if (fileHelpers.writeJsonFile(DATA_PATHS.labels, labels)) {
-      res.json({ message: 'Label rejected', label: labels[labelIndex] });
+    // Save to file
+    if (writeJsonFile(CONFIG.LAYERS_FILE, { layers })) {
+      res.json({ success: true });
     } else {
-      throw new Error('Failed to write labels file');
+      res.status(500).json({ error: 'Failed to update layers' });
     }
   } catch (error) {
-    console.error('Error rejecting label:', error);
-    res.status(500).json({ error: 'Failed to reject label' });
+    console.error('Error updating layers:', error);
+    res.status(500).json({ error: 'Failed to update layers' });
   }
 });
 
-// API endpoints for settings
-app.get('/api/settings', (req, res) => {
+// --- Legend API ---
+
+// Get legend data
+app.get('/data/maps/ixmaps/api/legend', (req, res) => {
   try {
-    const settings = fileHelpers.readJsonFile(DATA_PATHS.settings, DEFAULT_SETTINGS);
+    const legendData = readJsonFile(CONFIG.LEGEND_FILE);
+    res.json(legendData);
+  } catch (error) {
+    console.error('Error retrieving legend:', error);
+    res.status(500).json({ error: 'Failed to retrieve legend' });
+  }
+});
+
+// Update legend
+app.put('/data/maps/ixmaps/api/legend', (req, res) => {
+  try {
+    const legendData = req.body;
+    
+    // Save to file
+    if (writeJsonFile(CONFIG.LEGEND_FILE, legendData)) {
+      res.json({ success: true });
+    } else {
+      res.status(500).json({ error: 'Failed to update legend' });
+    }
+  } catch (error) {
+    console.error('Error updating legend:', error);
+    res.status(500).json({ error: 'Failed to update legend' });
+  }
+});
+
+// --- Settings API ---
+
+// Get settings
+app.get('/data/maps/ixmaps/api/settings', (req, res) => {
+  try {
+    const settings = readJsonFile(CONFIG.SETTINGS_FILE);
     res.json(settings);
   } catch (error) {
-    console.error('Error reading settings file:', error);
-    res.status(500).json({ error: 'Failed to load settings' });
+    console.error('Error retrieving settings:', error);
+    res.status(500).json({ error: 'Failed to retrieve settings' });
   }
 });
 
-app.post('/api/settings', adminMiddleware, (req, res) => {
+// Update settings
+app.put('/data/maps/ixmaps/api/settings', (req, res) => {
   try {
-    const currentSettings = fileHelpers.readJsonFile(DATA_PATHS.settings, DEFAULT_SETTINGS);
+    const settings = req.body;
     
-    // Update settings
-    const newSettings = {
-      ...currentSettings,
-      ...req.body
-    };
-    
-    // Validate settings
-    if (typeof newSettings.defaultZoom !== 'number') {
-      return res.status(400).json({ error: 'defaultZoom must be a number' });
-    }
-    
-    if (typeof newSettings.svgWidth !== 'number' || newSettings.svgWidth <= 0) {
-      return res.status(400).json({ error: 'svgWidth must be a positive number' });
-    }
-    
-    if (typeof newSettings.svgHeight !== 'number' || newSettings.svgHeight <= 0) {
-      return res.status(400).json({ error: 'svgHeight must be a positive number' });
-    }
-    
-    // Save the updated settings
-    if (fileHelpers.writeJsonFile(DATA_PATHS.settings, newSettings)) {
-      res.json(newSettings);
+    // Save to file
+    if (writeJsonFile(CONFIG.SETTINGS_FILE, settings)) {
+      res.json({ success: true });
     } else {
-      throw new Error('Failed to write settings file');
+      res.status(500).json({ error: 'Failed to update settings' });
     }
   } catch (error) {
     console.error('Error updating settings:', error);
@@ -703,142 +542,109 @@ app.post('/api/settings', adminMiddleware, (req, res) => {
   }
 });
 
-// API endpoints for layer configuration
-app.get('/api/layers', (req, res) => {
-  try {
-    const layers = fileHelpers.readJsonFile(DATA_PATHS.layers, DEFAULT_LAYERS);
-    res.json(layers);
-  } catch (error) {
-    console.error('Error reading layer configuration file:', error);
-    res.status(500).json({ error: 'Failed to load layer configuration' });
+// --- Auth API ---
+// Note: This is a simplified auth system. In production, use proper auth middleware.
+
+// Get current user
+app.get('/data/maps/ixmaps/api/auth/user', (req, res) => {
+  const sessionId = req.headers['x-session-id'];
+  if (!sessionId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+  
+  const userData = readJsonFile(CONFIG.USERS_FILE);
+  const session = userData.sessions[sessionId];
+  
+  if (!session) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+  
+  const user = userData.users.find(u => u.id === session.userId);
+  if (!user) {
+    return res.status(401).json({ error: 'User not found' });
+  }
+  
+  // Don't return sensitive data
+  const { passwordHash, ...userInfo } = user;
+  res.json(userInfo);
+});
+
+// Login
+app.post('/data/maps/ixmaps/api/auth/login', (req, res) => {
+  const { username, password } = req.body;
+  
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password required' });
+  }
+  
+  const userData = readJsonFile(CONFIG.USERS_FILE);
+  
+  // Simplified login (no real password checking)
+  const user = userData.users.find(u => u.username === username);
+  
+  if (!user) {
+    return res.status(401).json({ error: 'Invalid credentials' });
+  }
+  
+  // In a real app, verify the password hash here
+  
+  // Create a new session
+  const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+  
+  userData.sessions[sessionId] = {
+    userId: user.id,
+    createdAt: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+  };
+  
+  // Save session
+  if (writeJsonFile(CONFIG.USERS_FILE, userData)) {
+    // Don't return sensitive data
+    const { passwordHash, ...userInfo } = user;
+    res.json({
+      user: userInfo,
+      sessionId,
+      expiresAt: userData.sessions[sessionId].expiresAt
+    });
+  } else {
+    res.status(500).json({ error: 'Failed to create session' });
   }
 });
 
-app.post('/api/layers', adminMiddleware, (req, res) => {
-  try {
-    const layers = req.body;
-    
-    if (!Array.isArray(layers)) {
-      return res.status(400).json({ error: 'Invalid format. Expected an array of layer configurations.' });
-    }
-    
-    // Validate layer structure
-    for (const layer of layers) {
-      if (!layer.id || !layer.label || !Array.isArray(layer.labelTypes)) {
-        return res.status(400).json({ 
-          error: 'Invalid layer configuration. Each layer must have id, label, and labelTypes array.' 
-        });
-      }
-    }
-    
-    // Save the layer configuration
-    if (fileHelpers.writeJsonFile(DATA_PATHS.layers, layers)) {
-      res.json({ message: `Successfully saved ${layers.length} layer configurations` });
-    } else {
-      throw new Error('Failed to write layer configuration file');
-    }
-  } catch (error) {
-    console.error('Error updating layer configuration:', error);
-    res.status(500).json({ error: 'Failed to update layer configuration' });
+// Logout
+app.post('/data/maps/ixmaps/api/auth/logout', (req, res) => {
+  const sessionId = req.headers['x-session-id'];
+  if (!sessionId) {
+    return res.status(400).json({ error: 'Session ID required' });
+  }
+  
+  const userData = readJsonFile(CONFIG.USERS_FILE);
+  
+  // Remove session
+  delete userData.sessions[sessionId];
+  
+  if (writeJsonFile(CONFIG.USERS_FILE, userData)) {
+    res.json({ success: true });
+  } else {
+    res.status(500).json({ error: 'Failed to logout' });
   }
 });
 
-// API endpoints for legend configuration
-app.get('/api/legend', (req, res) => {
-  try {
-    const legend = fileHelpers.readJsonFile(DATA_PATHS.legend, DEFAULT_LEGEND);
-    res.json(legend);
-  } catch (error) {
-    console.error('Error reading legend configuration:', error);
-    res.status(500).json({ error: 'Failed to load legend configuration' });
-  }
-});
-
-app.post('/api/legend', adminMiddleware, (req, res) => {
-  try {
-    const currentLegend = fileHelpers.readJsonFile(DATA_PATHS.legend, DEFAULT_LEGEND);
-    
-    // Update legend configuration
-    const newLegend = {
-      ...currentLegend,
-      ...req.body
-    };
-    
-    // Validate legend structure
-    if (!newLegend.schemes || typeof newLegend.schemes !== 'object') {
-      return res.status(400).json({ error: 'Invalid legend configuration. Must include schemes object.' });
-    }
-    
-    // Save the updated legend
-    if (fileHelpers.writeJsonFile(DATA_PATHS.legend, newLegend)) {
-      res.json(newLegend);
-    } else {
-      throw new Error('Failed to write legend configuration file');
-    }
-  } catch (error) {
-    console.error('Error updating legend configuration:', error);
-    res.status(500).json({ error: 'Failed to update legend configuration' });
-  }
-});
-
-app.get('/api/legend/:scheme', (req, res) => {
-  try {
-    const legend = fileHelpers.readJsonFile(DATA_PATHS.legend, DEFAULT_LEGEND);
-    const scheme = req.params.scheme;
-    
-    if (!legend.schemes[scheme]) {
-      return res.status(404).json({ error: `Legend scheme "${scheme}" not found` });
-    }
-    
-    res.json(legend.schemes[scheme]);
-  } catch (error) {
-    console.error('Error reading legend scheme:', error);
-    res.status(500).json({ error: 'Failed to load legend scheme' });
-  }
-});
-
-app.put('/api/legend/:scheme', adminMiddleware, (req, res) => {
-  try {
-    const legend = fileHelpers.readJsonFile(DATA_PATHS.legend, DEFAULT_LEGEND);
-    const scheme = req.params.scheme;
-    
-    // Update or create the scheme
-    legend.schemes[scheme] = req.body;
-    
-    // Save the updated legend
-    if (fileHelpers.writeJsonFile(DATA_PATHS.legend, legend)) {
-      res.json(legend.schemes[scheme]);
-    } else {
-      throw new Error('Failed to write legend configuration file');
-    }
-  } catch (error) {
-    console.error('Error updating legend scheme:', error);
-    res.status(500).json({ error: 'Failed to update legend scheme' });
-  }
-});
-
-// Route to access the editor
-app.get('/editor', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'editor.html'));
-});
-
-// Serve the admin panel
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
-});
-
-// Add a test route to check if the server is running
-app.get('/test', (req, res) => {
-  res.send('IxMaps server is running properly.');
+// Get map info
+app.get('/data/maps/ixmaps/api/map-info', (req, res) => {
+  const settings = readJsonFile(CONFIG.SETTINGS_FILE);
+  
+  res.json({
+    exists: true,
+    path: settings.mapSettings.svgPath || '/data/maps/ixmaps/public/map.svg',
+    width: settings.mapSettings.svgWidth || 1920,
+    height: settings.mapSettings.svgHeight || 1080,
+    enableWrapping: settings.mapSettings.enableWrapping
+  });
 });
 
 // Start the server
-app.listen(port, () => {
-  console.log(`IxMaps server running on port ${port}`);
-  console.log(`Access the map at: http://localhost:${port}/`);
-  console.log(`Access the map editor at: http://localhost:${port}/editor`);
-  console.log(`Access the admin panel at: http://localhost:${port}/admin`);
-  
-  // Run startup checks
-  performStartupChecks();
+app.listen(PORT, () => {
+  console.log(`IxMaps server running on port ${PORT}`);
+  console.log(`JSON files stored in: ${path.dirname(CONFIG.LABELS_FILE)}`);
 });

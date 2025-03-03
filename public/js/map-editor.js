@@ -1,13 +1,13 @@
 /**
  * IxMaps - Interactive Map Editor
  * Adds label editing and management capabilities to the IxMaps viewer
- * Modified to use dummy auth data and simplified login process
+ * Updated to use server API for persistent storage
  */
 
 class IxMapEditor {
   constructor(options) {
     this.mapContainerId = options.containerId || 'map';
-    this.apiBaseUrl = options.apiBaseUrl || '/data/maps/ixmaps/public/api';
+    this.apiBaseUrl = options.apiBaseUrl || '/api';
     this.sessionId = localStorage.getItem('ixmaps-session-id') || 'dummy-session-id';
     
     // State variables
@@ -33,9 +33,9 @@ class IxMapEditor {
       { id: 'water', name: 'Water Body', minZoom: -2 }
     ];
     
-    // Load saved labels from localStorage
-    this.labels = this.loadLabelsFromStorage('ixmaps-approved-labels') || [];
-    this.pendingLabels = this.loadLabelsFromStorage('ixmaps-pending-labels') || [];
+    // Initialize labels
+    this.labels = [];
+    this.pendingLabels = [];
     
     // Store the session ID in localStorage for persistence
     localStorage.setItem('ixmaps-session-id', this.sessionId);
@@ -289,29 +289,6 @@ class IxMapEditor {
     
     // Add CSS for editor elements
     this.addEditorStyles();
-  }
-  
-  /**
-   * Local storage helpers
-   */
-  saveLabelsToStorage(key, labels) {
-    try {
-      localStorage.setItem(key, JSON.stringify(labels));
-      return true;
-    } catch (error) {
-      console.error(`Error saving to ${key}:`, error);
-      return false;
-    }
-  }
-  
-  loadLabelsFromStorage(key) {
-    try {
-      const data = localStorage.getItem(key);
-      return data ? JSON.parse(data) : null;
-    } catch (error) {
-      console.error(`Error loading from ${key}:`, error);
-      return null;
-    }
   }
   
   /**
@@ -906,19 +883,7 @@ class IxMapEditor {
    */
   async loadLabels() {
     try {
-      // First try to load from local storage
-      const storedApprovedLabels = this.loadLabelsFromStorage('ixmaps-approved-labels');
-      const storedPendingLabels = this.loadLabelsFromStorage('ixmaps-pending-labels');
-      
-      if (storedApprovedLabels && storedApprovedLabels.length > 0) {
-        this.labels = storedApprovedLabels;
-        this.pendingLabels = storedPendingLabels || [];
-        this.updateVisibleLabels();
-        this.showNotification('Loaded saved edits from local storage', 'info');
-        return [...this.labels, ...this.pendingLabels];
-      }
-      
-      // If no stored labels, try the API
+      // Call the API to get all labels
       const response = await fetch(`${this.apiBaseUrl}/labels`, {
         headers: {
           'X-Session-ID': this.sessionId || ''
@@ -926,17 +891,7 @@ class IxMapEditor {
       });
       
       if (!response.ok) {
-        // For demo/test, create dummy labels if API fails
-        console.warn('Failed to load labels from API, using dummy data');
-        this.labels = this.createDummyLabels();
-        this.pendingLabels = [];
-        
-        // Save to local storage
-        this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
-        this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
-        
-        this.updateVisibleLabels();
-        return this.labels;
+        throw new Error(`API returned error: ${response.status}`);
       }
       
       const labels = await response.json();
@@ -945,13 +900,10 @@ class IxMapEditor {
       this.labels = labels.filter(label => label.status === 'approved');
       this.pendingLabels = labels.filter(label => label.status === 'pending');
       
-      // Save to local storage
-      this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
-      this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
-      
       // Update the map
       this.updateVisibleLabels();
       
+      this.showNotification(`${labels.length} labels loaded from server`, 'info');
       return labels;
     } catch (error) {
       console.error('Error loading labels:', error);
@@ -961,13 +913,9 @@ class IxMapEditor {
       this.labels = this.createDummyLabels();
       this.pendingLabels = [];
       
-      // Save to local storage
-      this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
-      this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
-      
       this.updateVisibleLabels();
       
-      this.showNotification('Using demo labels for testing', 'warning');
+      this.showNotification('Using demo labels for testing. Server might be unavailable.', 'warning');
       return this.labels;
     }
   }
@@ -1124,7 +1072,9 @@ class IxMapEditor {
         y: parseFloat(formData.get('y')),
         x: parseFloat(formData.get('x')),
         minZoom: parseFloat(formData.get('minZoom')),
-        notes: formData.get('notes') || ''
+        notes: formData.get('notes') || '',
+        createdBy: this.currentUser.id,
+        isAdmin: this.currentUser.isAdmin // Pass this flag to auto-approve if admin
       };
       
       // Validate data
@@ -1133,61 +1083,34 @@ class IxMapEditor {
         return;
       }
       
-      try {
-        // Try to submit to API
-        const response = await fetch(`${this.apiBaseUrl}/labels`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Session-ID': this.sessionId || ''
-          },
-          body: JSON.stringify(labelData)
-        });
-        
-        if (response.ok) {
-          const newLabel = await response.json();
-          
-          // Add to appropriate collection
-          if (newLabel.status === 'approved') {
-            this.labels.push(newLabel);
-            this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
-          } else {
-            this.pendingLabels.push(newLabel);
-            this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
-          }
-          
-          // Update the map
-          this.updateVisibleLabels();
-          
-          // Show success notification
-          this.showNotification('Label created successfully', 'success');
-        } else {
-          throw new Error('API error');
-        }
-      } catch (apiError) {
-        console.warn('API error, using dummy label creation:', apiError);
-        
-        // Create a dummy label entry for testing
-        const newLabel = {
-          id: 'new-' + Date.now(),
-          ...labelData,
-          status: 'approved', // Auto-approve in dummy mode
-          createdBy: this.currentUser.id,
-          createdAt: new Date().toISOString()
-        };
-        
-        // Add to labels collection
-        this.labels.push(newLabel);
-        
-        // Save to localStorage
-        this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
-        
-        // Update the map
-        this.updateVisibleLabels();
-        
-        // Show notification
-        this.showNotification('Label created and saved to local storage', 'success');
+      // Submit to API
+      const response = await fetch(`${this.apiBaseUrl}/labels`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-ID': this.sessionId || ''
+        },
+        body: JSON.stringify(labelData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
       }
+      
+      const newLabel = await response.json();
+      
+      // Add to appropriate collection
+      if (newLabel.status === 'approved') {
+        this.labels.push(newLabel);
+      } else {
+        this.pendingLabels.push(newLabel);
+      }
+      
+      // Update the map
+      this.updateVisibleLabels();
+      
+      // Show success notification
+      this.showNotification('Label created and saved to server', 'success');
       
       // Hide the form
       document.getElementById('ixmap-label-form-container').style.display = 'none';
@@ -1258,56 +1181,42 @@ class IxMapEditor {
         return;
       }
       
-      try {
-        // Try to submit to API
-        const response = await fetch(`${this.apiBaseUrl}/labels/${labelId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Session-ID': this.sessionId || ''
-          },
-          body: JSON.stringify(labelData)
-        });
-        
-        if (response.ok) {
-          const updatedLabel = await response.json();
-          
-          // Update in appropriate collection
-          const index = this.labels.findIndex(l => l.id === labelId);
-          if (index !== -1) {
-            this.labels[index] = updatedLabel;
-            this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
-          } else {
-            const pendingIndex = this.pendingLabels.findIndex(l => l.id === labelId);
-            if (pendingIndex !== -1) {
-              this.pendingLabels[pendingIndex] = updatedLabel;
-              this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
-            }
-          }
-        } else {
-          throw new Error('API error');
-        }
-      } catch (apiError) {
-        console.warn('API error, using dummy label update:', apiError);
-        
-        // Create a dummy updated label
-        const updatedLabel = {
-          ...this.selectedLabel,
-          ...labelData,
-          updatedAt: new Date().toISOString()
-        };
-        
-        // Update in collections and save to localStorage
+      // Submit to API
+      const response = await fetch(`${this.apiBaseUrl}/labels/${labelId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Session-ID': this.sessionId || ''
+        },
+        body: JSON.stringify(labelData)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const updatedLabel = await response.json();
+      
+      // Update in appropriate collection
+      if (updatedLabel.status === 'approved') {
         const index = this.labels.findIndex(l => l.id === labelId);
         if (index !== -1) {
           this.labels[index] = updatedLabel;
-          this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
         } else {
-          const pendingIndex = this.pendingLabels.findIndex(l => l.id === labelId);
-          if (pendingIndex !== -1) {
-            this.pendingLabels[pendingIndex] = updatedLabel;
-            this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
-          }
+          // Remove from pending if it was moved
+          this.pendingLabels = this.pendingLabels.filter(l => l.id !== labelId);
+          // Add to approved
+          this.labels.push(updatedLabel);
+        }
+      } else {
+        const pendingIndex = this.pendingLabels.findIndex(l => l.id === labelId);
+        if (pendingIndex !== -1) {
+          this.pendingLabels[pendingIndex] = updatedLabel;
+        } else {
+          // Remove from approved if it was moved
+          this.labels = this.labels.filter(l => l.id !== labelId);
+          // Add to pending
+          this.pendingLabels.push(updatedLabel);
         }
       }
       
@@ -1318,7 +1227,7 @@ class IxMapEditor {
       document.getElementById('ixmap-label-edit-form-container').style.display = 'none';
       
       // Show success notification
-      this.showNotification('Label updated and saved to local storage', 'success');
+      this.showNotification('Label updated and saved to server', 'success');
       
     } catch (error) {
       console.error('Error updating label:', error);
@@ -1331,29 +1240,21 @@ class IxMapEditor {
    */
   async deleteLabel(labelId) {
     try {
-      try {
-        // Try to submit to API
-        const response = await fetch(`${this.apiBaseUrl}/labels/${labelId}`, {
-          method: 'DELETE',
-          headers: {
-            'X-Session-ID': this.sessionId || ''
-          }
-        });
-        
-        if (!response.ok) {
-          throw new Error('API error');
+      // Delete via API
+      const response = await fetch(`${this.apiBaseUrl}/labels/${labelId}`, {
+        method: 'DELETE',
+        headers: {
+          'X-Session-ID': this.sessionId || ''
         }
-      } catch (apiError) {
-        console.warn('API error during delete, proceeding with local delete:', apiError);
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
       }
       
-      // Update local data regardless of API success
+      // Update local collections
       this.labels = this.labels.filter(l => l.id !== labelId);
       this.pendingLabels = this.pendingLabels.filter(l => l.id !== labelId);
-      
-      // Save updated collections to localStorage
-      this.saveLabelsToStorage('ixmaps-approved-labels', this.labels);
-      this.saveLabelsToStorage('ixmaps-pending-labels', this.pendingLabels);
       
       // Update the map
       this.updateVisibleLabels();
@@ -1507,7 +1408,7 @@ class IxMapEditor {
   /**
    * Delete labels in bulk from the manage edits modal
    */
-  bulkDeleteLabels() {
+  async bulkDeleteLabels() {
     const checkedLabels = document.querySelectorAll('.label-checkbox:checked');
     
     if (checkedLabels.length === 0) {
@@ -1519,43 +1420,62 @@ class IxMapEditor {
       const labelIds = Array.from(checkedLabels).map(checkbox => checkbox.dataset.id);
       
       // Delete each label
-      labelIds.forEach(id => {
-        this.deleteLabel(id);
-      });
+      const promises = labelIds.map(id => this.deleteLabel(id));
       
-      // Refresh the lists
-      this.populateLabelsLists();
-      
-      this.showNotification(`${labelIds.length} labels deleted successfully`, 'success');
+      try {
+        await Promise.all(promises);
+        
+        // Refresh the lists
+        this.populateLabelsLists();
+        
+        this.showNotification(`${labelIds.length} labels deleted successfully`, 'success');
+      } catch (error) {
+        console.error('Error in bulk delete:', error);
+        this.showNotification('Error during bulk delete operation', 'error');
+      }
     }
   }
   
   /**
    * Clear all labels
    */
-  clearAllLabels() {
-    // Clear in-memory data
-    this.labels = [];
-    this.pendingLabels = [];
-    
-    // Clear localStorage
-    this.saveLabelsToStorage('ixmaps-approved-labels', []);
-    this.saveLabelsToStorage('ixmaps-pending-labels', []);
-    
-    // Update the map
-    this.updateVisibleLabels();
-    
-    // Refresh the lists
-    this.populateLabelsLists();
-    
-    this.showNotification('All labels have been cleared', 'success');
+  async clearAllLabels() {
+    try {
+      // Call the API to clear all labels
+      const response = await fetch(`${this.apiBaseUrl}/labels`, {
+        method: 'DELETE',
+        headers: {
+          'X-Session-ID': this.sessionId || ''
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      // Clear in-memory data
+      this.labels = [];
+      this.pendingLabels = [];
+      
+      // Update the map
+      this.updateVisibleLabels();
+      
+      // Refresh the lists
+      this.populateLabelsLists();
+      
+      this.showNotification('All labels have been cleared from the server', 'success');
+    } catch (error) {
+      console.error('Error clearing labels:', error);
+      this.showNotification('Failed to clear labels: ' + error.message, 'error');
+    }
   }
   
   /**
    * Export labels as JSON
    */
   exportLabels() {
-    const allLabels = [...this.labels, ...this.pendingLabels];
+    const allLabels = [...this.labels.map(l => ({...l, status: 'approved'})), 
+                       ...this.pendingLabels.map(l => ({...l, status: 'pending'}))];
     
     if (allLabels.length === 0) {
       this.showNotification('No labels to export', 'warning');
