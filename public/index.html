@@ -3,39 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IxMaps - Alpha v2.5</title>
-  <!-- External CSS -->
+  <title>IxMaps</title>
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
-  <link rel="stylesheet" href="/data/maps/ixmaps/public/css/ixmap-styles.css" />
-  <link rel="stylesheet" href="/data/maps/ixmaps/public/css/ixmap-editor.css" />
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="/data/maps/ixmaps/public/css/main.css" />
 </head>
 <body>
   <div id="map"></div>
-  <div id="map-status">Loading map system...</div>
-  
-  <div class="control-toggle" id="toggle-controls">≡</div>
-  
-  <div class="control-panel hidden" id="controls">
-    <h3>Display Options</h3>
-    <div id="layer-controls">
-      <!-- Layer toggles will be added here dynamically -->
-    </div>
-  </div>
+  <div id="loading-indicator">Loading map...</div>
 
-  <div class="map-legend" id="map-legend">
-    <div class="legend-title">
-      Map Legend <span class="legend-toggle" id="toggle-legend">−</span>
-    </div>
-    <div class="legend-content" id="legend-content">
-      <!-- Legend items will be added here dynamically -->
-    </div>
-  </div>
-
-  <!-- JavaScript libraries -->
+  <!-- Leaflet JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-  
-  <!-- Application scripts -->
-  <script src="/data/maps/ixmaps/public/js/map-editor.js"></script>
-  <script src="/data/maps/ixmaps/public/js/ixmaps-main.js"></script>
+  <!-- Main JS -->
+  <script src="/data/maps/ixmaps/public/js/main.js"></script>
 </body>
 </html>

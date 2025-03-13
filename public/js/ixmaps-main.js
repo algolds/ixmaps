@@ -5,567 +5,567 @@
 
 // Hide map status message after a delay
 setTimeout(() => {
-    const mapStatus = document.getElementById('map-status');
-    if (mapStatus) {
-      mapStatus.style.opacity = '0';
-      mapStatus.style.transition = 'opacity 1s ease';
-      
-      // Remove from DOM after fade out
-      setTimeout(() => {
-        if (mapStatus.parentNode) {
-          mapStatus.parentNode.removeChild(mapStatus);
-        }
-      }, 1000);
+  const mapStatus = document.getElementById('map-status');
+  if (mapStatus) {
+    mapStatus.style.opacity = '0';
+    mapStatus.style.transition = 'opacity 1s ease';
+    
+    // Remove from DOM after fade out
+    setTimeout(() => {
+      if (mapStatus.parentNode) {
+        mapStatus.parentNode.removeChild(mapStatus);
+      }
+    }, 1000);
+  }
+}, 3000); // Hide after 3 seconds
+
+// Map configuration helper
+const mapConfig = {
+  url: '/data/maps/ixmaps/public/map.svg', // Simplified path for testing
+  
+  // SVG dimensions - adjusted dynamically when SVG loads
+  svgWidth: 1920,
+  svgHeight: 1080,
+  
+  // Default zoom level (higher number = more zoomed in)
+  defaultZoom: 0.5,
+  
+  // Enable wrapping
+  enableWrapping: true,
+  
+  // Label categories
+  labelCategories: [
+    { id: 'continent', name: 'Continent', minZoom: -3 },
+    { id: 'country', name: 'Country', minZoom: -1 },
+    { id: 'capital', name: 'Capital', minZoom: 0 },
+    { id: 'city', name: 'City', minZoom: 1 },
+    { id: 'landmark', name: 'Landmark', minZoom: 2 },
+    { id: 'water', name: 'Water Body', minZoom: -2 }
+  ],
+  
+  // Fetch map info from the server
+  fetchMapInfo: async function() {
+    try {
+      const response = await fetch('/api/map-info');
+      if (!response.ok) {
+        throw new Error(`HTTP error: ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching map info:', error);
+      return { exists: false };
     }
-  }, 3000); // Hide after 3 seconds
+  },
   
-  // Map configuration helper
-  const mapConfig = {
-    url: '/data/maps/ixmaps/public/map.svg', // Simplified path for testing
-    
-    // SVG dimensions - adjusted dynamically when SVG loads
-    svgWidth: 1920,
-    svgHeight: 1080,
-    
-    // Default zoom level (higher number = more zoomed in)
-    defaultZoom: 0.5,
-    
-    // Enable wrapping
-    enableWrapping: true,
-    
-    // Label categories
-    labelCategories: [
-      { id: 'continent', name: 'Continent', minZoom: -3 },
-      { id: 'country', name: 'Country', minZoom: -1 },
-      { id: 'capital', name: 'Capital', minZoom: 0 },
-      { id: 'city', name: 'City', minZoom: 1 },
-      { id: 'landmark', name: 'Landmark', minZoom: 2 },
-      { id: 'water', name: 'Water Body', minZoom: -2 }
-    ],
-    
-    // Fetch map info from the server
-    fetchMapInfo: async function() {
-      try {
-        const response = await fetch('/api/map-info');
-        if (!response.ok) {
-          throw new Error(`HTTP error: ${response.status}`);
+  // Color schemes for the legend
+  colorSchemes: {
+    topographic: {
+      name: "Topographic",
+      sections: [
+        {
+          title: "Elevation",
+          items: [
+            { color: "#d8f2ba", label: "Lowlands" },
+            { color: "#b9df7e", label: "Hills" },
+            { color: "#8ebe56", label: "Highlands" },
+            { color: "#598834", label: "Mountains" },
+            { color: "#39521f", label: "Peaks" }
+          ]
+        },
+        {
+          title: "Water",
+          items: [
+            { color: "#a3cddb", label: "Ocean" },
+            { color: "#b8def0", label: "Lakes" }
+          ]
         }
-        return await response.json();
-      } catch (error) {
-        console.error('Error fetching map info:', error);
-        return { exists: false };
-      }
-    },
-    
-    // Color schemes for the legend
-    colorSchemes: {
-      topographic: {
-        name: "Topographic",
-        sections: [
-          {
-            title: "Elevation",
-            items: [
-              { color: "#d8f2ba", label: "Lowlands" },
-              { color: "#b9df7e", label: "Hills" },
-              { color: "#8ebe56", label: "Highlands" },
-              { color: "#598834", label: "Mountains" },
-              { color: "#39521f", label: "Peaks" }
-            ]
-          },
-          {
-            title: "Water",
-            items: [
-              { color: "#a3cddb", label: "Ocean" },
-              { color: "#b8def0", label: "Lakes" }
-            ]
-          }
-        ]
-      }
-    },
-    
-    // Current color scheme
-    currentScheme: "topographic"
-  };
+      ]
+    }
+  },
   
-  // SVG utilities
-  const svgUtils = {
-    loadSVG: async function() {
-      const mapStatus = document.getElementById('map-status');
-      mapStatus.textContent = 'Attempting to load map...';
+  // Current color scheme
+  currentScheme: "topographic"
+};
+
+// SVG utilities
+const svgUtils = {
+  loadSVG: async function() {
+    const mapStatus = document.getElementById('map-status');
+    mapStatus.textContent = 'Attempting to load map...';
+    
+    try {
+      console.log('Attempting to fetch SVG from:', mapConfig.url);
+      let response = await fetch(mapConfig.url);
       
-      try {
-        console.log('Attempting to fetch SVG from:', mapConfig.url);
-        let response = await fetch(mapConfig.url);
-        
-        if (!response.ok) {
-          // For testing purposes, create a simple SVG if fetch fails
-          console.log('Using test SVG');
-          return this.createTestSVG();
-        }
-        
-        const svgText = await response.text();
-        console.log('SVG loaded successfully, length:', svgText.length);
-        
-        // Try to extract viewBox from SVG for better dimensions
-        const viewBoxMatch = svgText.match(/viewBox="([^"]+)"/);
-        if (viewBoxMatch) {
-          const viewBox = viewBoxMatch[1].split(/\s+/).map(Number);
-          if (viewBox.length === 4) {
-            mapConfig.svgWidth = viewBox[2];
-            mapConfig.svgHeight = viewBox[3];
-            console.log(`Extracted viewBox dimensions: ${mapConfig.svgWidth}x${mapConfig.svgHeight}`);
-          }
-        }
-        
-        mapStatus.textContent = 'Map loaded successfully!';
-        mapStatus.style.color = 'green';
-        
-        return true;
-      } catch (error) {
-        console.error('Error loading SVG:', error);
-        mapStatus.textContent = 'Using test map for demo.';
-        mapStatus.style.color = 'orange';
+      if (!response.ok) {
+        // For testing purposes, create a simple SVG if fetch fails
+        console.log('Using test SVG');
         return this.createTestSVG();
       }
-    },
-    
-    createTestSVG: function() {
-      // For testing: Create a simple SVG directly in the DOM
-      const mapContainer = document.getElementById('map');
-      const testSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       
-      testSvg.setAttribute('viewBox', '0 0 800 600');
-      testSvg.setAttribute('width', '800');
-      testSvg.setAttribute('height', '600');
-      testSvg.style.display = 'none';
+      const svgText = await response.text();
+      console.log('SVG loaded successfully, length:', svgText.length);
       
-      // Background water
-      const water = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      water.setAttribute('width', '800');
-      water.setAttribute('height', '600');
-      water.setAttribute('fill', '#a3cddb');
-      testSvg.appendChild(water);
+      // Try to extract viewBox from SVG for better dimensions
+      const viewBoxMatch = svgText.match(/viewBox="([^"]+)"/);
+      if (viewBoxMatch) {
+        const viewBox = viewBoxMatch[1].split(/\s+/).map(Number);
+        if (viewBox.length === 4) {
+          mapConfig.svgWidth = viewBox[2];
+          mapConfig.svgHeight = viewBox[3];
+          console.log(`Extracted viewBox dimensions: ${mapConfig.svgWidth}x${mapConfig.svgHeight}`);
+        }
+      }
       
-      // Land mass
-      const land = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      land.setAttribute('d', 'M100,100 C200,50 300,50 400,100 C500,150 600,150 700,100 L700,500 C600,450 500,450 400,500 C300,550 200,550 100,500 Z');
-      land.setAttribute('fill', '#b9df7e');
-      testSvg.appendChild(land);
-      
-      // Mountains
-      const mountains = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      mountains.setAttribute('d', 'M300,200 L350,150 L400,200 L450,100 L500,200 Z');
-      mountains.setAttribute('fill', '#598834');
-      testSvg.appendChild(mountains);
-      
-      document.body.appendChild(testSvg);
-      
-      // Update config with SVG dimensions
-      mapConfig.svgWidth = 800;
-      mapConfig.svgHeight = 600;
-      mapConfig.url = testSvg;
+      mapStatus.textContent = 'Map loaded successfully!';
+      mapStatus.style.color = 'green';
       
       return true;
-    },
+    } catch (error) {
+      console.error('Error loading SVG:', error);
+      mapStatus.textContent = 'Using test map for demo.';
+      mapStatus.style.color = 'orange';
+      return this.createTestSVG();
+    }
+  },
+  
+  createTestSVG: function() {
+    // For testing: Create a simple SVG directly in the DOM
+    const mapContainer = document.getElementById('map');
+    const testSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     
-    checkAndDisplayMapInfo: async function() {
-      const mapStatus = document.getElementById('map-status');
-      
-      try {
-        const info = await mapConfig.fetchMapInfo();
-        if (info.exists) {
-          mapStatus.textContent = `Map found: ${info.path}`;
-          mapStatus.style.color = 'green';
-          return true;
-        } else {
-          mapStatus.textContent = `Using test map for demo...`;
-          mapStatus.style.color = 'orange';
-          return await this.loadSVG();
-        }
-      } catch (error) {
+    testSvg.setAttribute('viewBox', '0 0 800 600');
+    testSvg.setAttribute('width', '800');
+    testSvg.setAttribute('height', '600');
+    testSvg.style.display = 'none';
+    
+    // Background water
+    const water = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    water.setAttribute('width', '800');
+    water.setAttribute('height', '600');
+    water.setAttribute('fill', '#a3cddb');
+    testSvg.appendChild(water);
+    
+    // Land mass
+    const land = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    land.setAttribute('d', 'M100,100 C200,50 300,50 400,100 C500,150 600,150 700,100 L700,500 C600,450 500,450 400,500 C300,550 200,550 100,500 Z');
+    land.setAttribute('fill', '#b9df7e');
+    testSvg.appendChild(land);
+    
+    // Mountains
+    const mountains = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    mountains.setAttribute('d', 'M300,200 L350,150 L400,200 L450,100 L500,200 Z');
+    mountains.setAttribute('fill', '#598834');
+    testSvg.appendChild(mountains);
+    
+    document.body.appendChild(testSvg);
+    
+    // Update config with SVG dimensions
+    mapConfig.svgWidth = 800;
+    mapConfig.svgHeight = 600;
+    mapConfig.url = testSvg;
+    
+    return true;
+  },
+  
+  checkAndDisplayMapInfo: async function() {
+    const mapStatus = document.getElementById('map-status');
+    
+    try {
+      const info = await mapConfig.fetchMapInfo();
+      if (info.exists) {
+        mapStatus.textContent = `Map found: ${info.path}`;
+        mapStatus.style.color = 'green';
+        return true;
+      } else {
         mapStatus.textContent = `Using test map for demo...`;
         mapStatus.style.color = 'orange';
         return await this.loadSVG();
       }
+    } catch (error) {
+      mapStatus.textContent = `Using test map for demo...`;
+      mapStatus.style.color = 'orange';
+      return await this.loadSVG();
     }
-  };
-  
-  // UI utilities
-  const uiUtils = {
-    // Initialize layer controls based on configuration
-    initializeLayerControls: async function() {
-      const controlsContainer = document.getElementById('layer-controls');
-      controlsContainer.innerHTML = ''; // Clear existing controls
+  }
+};
+
+// UI utilities
+const uiUtils = {
+  // Initialize layer controls based on configuration
+  initializeLayerControls: async function() {
+    const controlsContainer = document.getElementById('layer-controls');
+    controlsContainer.innerHTML = ''; // Clear existing controls
+    
+    try {
+      // Default layers since we're bypassing server for testing
+      const layers = [
+        { id: 'continents', label: 'Continents', labelTypes: ['continent'], defaultVisible: true },
+        { id: 'countries', label: 'Countries', labelTypes: ['country'], defaultVisible: true },
+        { id: 'capitals', label: 'Capitals', labelTypes: ['capital'], defaultVisible: true },
+        { id: 'waters', label: 'Water Bodies', labelTypes: ['water'], defaultVisible: true },
+        { id: 'terrain', label: 'Terrain', labelTypes: ['terrain'], defaultVisible: true }
+      ];
       
-      try {
-        // Default layers since we're bypassing server for testing
-        const layers = [
-          { id: 'continents', label: 'Continents', labelTypes: ['continent'], defaultVisible: true },
-          { id: 'countries', label: 'Countries', labelTypes: ['country'], defaultVisible: true },
-          { id: 'capitals', label: 'Capitals', labelTypes: ['capital'], defaultVisible: true },
-          { id: 'waters', label: 'Water Bodies', labelTypes: ['water'], defaultVisible: true },
-          { id: 'terrain', label: 'Terrain', labelTypes: ['terrain'], defaultVisible: true }
-        ];
+      // Group layers by category
+      const categories = {
+        'Labels': ['continents', 'countries', 'capitals', 'cities', 'regions', 'waters'],
+        'Features': ['terrain', 'rivers', 'mountains', 'forests'],
+        'Other': []
+      };
+      
+      // Sort layers into categories
+      const categorizedLayers = {};
+      Object.keys(categories).forEach(category => {
+        categorizedLayers[category] = [];
+      });
+      
+      layers.forEach(layer => {
+        let assigned = false;
         
-        // Group layers by category
-        const categories = {
-          'Labels': ['continents', 'countries', 'capitals', 'cities', 'regions', 'waters'],
-          'Features': ['terrain', 'rivers', 'mountains', 'forests'],
-          'Other': []
-        };
-        
-        // Sort layers into categories
-        const categorizedLayers = {};
-        Object.keys(categories).forEach(category => {
-          categorizedLayers[category] = [];
-        });
-        
-        layers.forEach(layer => {
-          let assigned = false;
-          
-          // Check each category
-          for (const [category, ids] of Object.entries(categories)) {
-            if (ids.includes(layer.id)) {
-              categorizedLayers[category].push(layer);
-              assigned = true;
-              break;
-            }
-          }
-          
-          // If not assigned to a specific category, add to Other
-          if (!assigned) {
-            categorizedLayers['Other'].push(layer);
-          }
-        });
-        
-        // Create controls grouped by category
-        for (const [category, categoryLayers] of Object.entries(categorizedLayers)) {
-          if (categoryLayers.length > 0) {
-            const groupDiv = document.createElement('div');
-            groupDiv.className = 'layer-group';
-            
-            const groupTitle = document.createElement('div');
-            groupTitle.style.fontWeight = 'bold';
-            groupTitle.style.marginBottom = '5px';
-            groupTitle.textContent = category;
-            groupDiv.appendChild(groupTitle);
-            
-            // Add layer toggles
-            categoryLayers.forEach(layer => {
-              const controlDiv = document.createElement('div');
-              controlDiv.className = 'layer-toggle';
-              
-              const checkbox = document.createElement('input');
-              checkbox.type = 'checkbox';
-              checkbox.id = `show-${layer.id}`;
-              checkbox.dataset.layerId = layer.id;
-              checkbox.checked = layer.defaultVisible;
-              
-              const label = document.createElement('label');
-              label.htmlFor = `show-${layer.id}`;
-              label.textContent = layer.label;
-              
-              controlDiv.appendChild(checkbox);
-              controlDiv.appendChild(label);
-              groupDiv.appendChild(controlDiv);
-            });
-            
-            controlsContainer.appendChild(groupDiv);
+        // Check each category
+        for (const [category, ids] of Object.entries(categories)) {
+          if (ids.includes(layer.id)) {
+            categorizedLayers[category].push(layer);
+            assigned = true;
+            break;
           }
         }
         
-        return layers;
-      } catch (error) {
-        console.error('Error initializing layer controls:', error);
-        return [];
-      }
-    },
-    
-    // Toggle control panel visibility
-    initializeControlToggle: function() {
-      const toggleButton = document.getElementById('toggle-controls');
-      const controlPanel = document.getElementById('controls');
-      
-      toggleButton.addEventListener('click', function() {
-        controlPanel.classList.toggle('hidden');
-        toggleButton.textContent = controlPanel.classList.contains('hidden') ? '≡' : '×';
-      });
-    },
-    
-    // Initialize the legend
-    initializeLegend: function() {
-      const legendContent = document.getElementById('legend-content');
-      const toggleLegend = document.getElementById('toggle-legend');
-      const colorScheme = mapConfig.colorSchemes[mapConfig.currentScheme];
-      
-      // Set up toggle functionality
-      toggleLegend.addEventListener('click', function() {
-        const content = document.getElementById('legend-content');
-        content.classList.toggle('hidden');
-        toggleLegend.textContent = content.classList.contains('hidden') ? '+' : '−';
+        // If not assigned to a specific category, add to Other
+        if (!assigned) {
+          categorizedLayers['Other'].push(layer);
+        }
       });
       
-      // Clear existing content
-      legendContent.innerHTML = '';
-      
-      // Create legend items based on current color scheme
-      if (colorScheme) {
-        colorScheme.sections.forEach(section => {
-          const sectionDiv = document.createElement('div');
-          sectionDiv.className = 'legend-section';
+      // Create controls grouped by category
+      for (const [category, categoryLayers] of Object.entries(categorizedLayers)) {
+        if (categoryLayers.length > 0) {
+          const groupDiv = document.createElement('div');
+          groupDiv.className = 'layer-group';
           
-          const sectionTitle = document.createElement('div');
-          sectionTitle.className = 'legend-section-title';
-          sectionTitle.textContent = section.title;
-          sectionDiv.appendChild(sectionTitle);
+          const groupTitle = document.createElement('div');
+          groupTitle.style.fontWeight = 'bold';
+          groupTitle.style.marginBottom = '5px';
+          groupTitle.textContent = category;
+          groupDiv.appendChild(groupTitle);
           
-          section.items.forEach(item => {
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'legend-item';
+          // Add layer toggles
+          categoryLayers.forEach(layer => {
+            const controlDiv = document.createElement('div');
+            controlDiv.className = 'layer-toggle';
             
-            const colorBox = document.createElement('div');
-            colorBox.className = 'legend-color';
-            colorBox.style.backgroundColor = item.color;
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.id = `show-${layer.id}`;
+            checkbox.dataset.layerId = layer.id;
+            checkbox.checked = layer.defaultVisible;
             
-            const label = document.createElement('div');
-            label.textContent = item.label;
+            const label = document.createElement('label');
+            label.htmlFor = `show-${layer.id}`;
+            label.textContent = layer.label;
             
-            itemDiv.appendChild(colorBox);
-            itemDiv.appendChild(label);
-            sectionDiv.appendChild(itemDiv);
+            controlDiv.appendChild(checkbox);
+            controlDiv.appendChild(label);
+            groupDiv.appendChild(controlDiv);
           });
           
-          legendContent.appendChild(sectionDiv);
-        });
-      }
-    }
-  };
-  
-  // Initialize the application
-  async function initializeMap() {
-    // Initialize UI elements
-    uiUtils.initializeControlToggle();
-    uiUtils.initializeLegend();
-    const layers = await uiUtils.initializeLayerControls();
-    
-    // Check if map exists and update status
-    await svgUtils.checkAndDisplayMapInfo();
-    
-    // Set wrapping to true
-    mapConfig.enableWrapping = true;
-    
-    // Initialize the map with standard Simple CRS
-    const map = L.map('map', {
-      crs: L.CRS.Simple,
-      minZoom: -3,
-      maxZoom: 6,
-      zoomSnap: 0.2,
-      zoomDelta: 0.9,
-      attributionControl: false,
-      center: [mapConfig.svgHeight/2, mapConfig.svgWidth/2], // Center on the map
-      zoom: mapConfig.defaultZoom || 0
-    });
-  
-    // Calculate bounds based on the SVG dimensions
-    const bounds = [
-      [0, 0],
-      [mapConfig.svgHeight, mapConfig.svgWidth]
-    ];
-    
-    // Variables to store our SVG layers
-    let mainSvgLayer, leftSvgLayer, rightSvgLayer;
-    
-    // Function to add all SVG layers to the map
-    function addSVGLayers() {
-      // Remove existing layers if they exist
-      if (mainSvgLayer) map.removeLayer(mainSvgLayer);
-      if (leftSvgLayer) map.removeLayer(leftSvgLayer);
-      if (rightSvgLayer) map.removeLayer(rightSvgLayer);
-      
-      // Add the main SVG
-      mainSvgLayer = L.imageOverlay(mapConfig.url, bounds)
-        .on('error', function(e) {
-          console.error('Error loading SVG in Leaflet:', e);
-          document.getElementById('map-status').textContent = 
-            'Using placeholder map for testing.';
-          document.getElementById('map-status').style.color = 'orange';
-          
-          // Create a placeholder colored div as a fallback
-          const placeholderDiv = document.createElement('div');
-          placeholderDiv.style.position = 'absolute';
-          placeholderDiv.style.top = '0';
-          placeholderDiv.style.left = '0';
-          placeholderDiv.style.width = '100%';
-          placeholderDiv.style.height = '100%';
-          placeholderDiv.style.backgroundColor = '#D5FFFF';
-          placeholderDiv.style.zIndex = '-1';
-          document.getElementById('map').appendChild(placeholderDiv);
-        })
-        .addTo(map);
-      
-      if (mapConfig.enableWrapping) {
-        // Create bounds for left copy (shifted left by the width of the map)
-        const leftBounds = [
-          [0, -mapConfig.svgWidth],
-          [mapConfig.svgHeight, 0]
-        ];
-        
-        // Create bounds for right copy (shifted right by the width of the map)
-        const rightBounds = [
-          [0, mapConfig.svgWidth],
-          [mapConfig.svgHeight, mapConfig.svgWidth * 2]
-        ];
-        
-        // Add left copy
-        leftSvgLayer = L.imageOverlay(mapConfig.url, leftBounds).addTo(map);
-        
-        // Add right copy
-        rightSvgLayer = L.imageOverlay(mapConfig.url, rightBounds).addTo(map);
-      }
-    }
-    
-    // Add SVG layers initially
-    addSVGLayers();
-    
-    // Add custom panning logic for wrapping
-    if (mapConfig.enableWrapping) {
-      map.on('moveend', function() {
-        const center = map.getCenter();
-        
-        // If the map is panned beyond the bounds, adjust the center
-        if (center.lng < 0) {
-          // Panned too far left, wrap to right
-          map.panTo([center.lat, center.lng + mapConfig.svgWidth], {animate: false});
-        } else if (center.lng > mapConfig.svgWidth) {
-          // Panned too far right, wrap to left
-          map.panTo([center.lat, center.lng - mapConfig.svgWidth], {animate: false});
+          controlsContainer.appendChild(groupDiv);
         }
+      }
+      
+      return layers;
+    } catch (error) {
+      console.error('Error initializing layer controls:', error);
+      return [];
+    }
+  },
+  
+  // Toggle control panel visibility
+  initializeControlToggle: function() {
+    const toggleButton = document.getElementById('toggle-controls');
+    const controlPanel = document.getElementById('controls');
+    
+    toggleButton.addEventListener('click', function() {
+      controlPanel.classList.toggle('hidden');
+      toggleButton.textContent = controlPanel.classList.contains('hidden') ? '≡' : '×';
+    });
+  },
+  
+  // Initialize the legend
+  initializeLegend: function() {
+    const legendContent = document.getElementById('legend-content');
+    const toggleLegend = document.getElementById('toggle-legend');
+    const colorScheme = mapConfig.colorSchemes[mapConfig.currentScheme];
+    
+    // Set up toggle functionality
+    toggleLegend.addEventListener('click', function() {
+      const content = document.getElementById('legend-content');
+      content.classList.toggle('hidden');
+      toggleLegend.textContent = content.classList.contains('hidden') ? '+' : '−';
+    });
+    
+    // Clear existing content
+    legendContent.innerHTML = '';
+    
+    // Create legend items based on current color scheme
+    if (colorScheme) {
+      colorScheme.sections.forEach(section => {
+        const sectionDiv = document.createElement('div');
+        sectionDiv.className = 'legend-section';
+        
+        const sectionTitle = document.createElement('div');
+        sectionTitle.className = 'legend-section-title';
+        sectionTitle.textContent = section.title;
+        sectionDiv.appendChild(sectionTitle);
+        
+        section.items.forEach(item => {
+          const itemDiv = document.createElement('div');
+          itemDiv.className = 'legend-item';
+          
+          const colorBox = document.createElement('div');
+          colorBox.className = 'legend-color';
+          colorBox.style.backgroundColor = item.color;
+          
+          const label = document.createElement('div');
+          label.textContent = item.label;
+          
+          itemDiv.appendChild(colorBox);
+          itemDiv.appendChild(label);
+          sectionDiv.appendChild(itemDiv);
+        });
+        
+        legendContent.appendChild(sectionDiv);
       });
     }
+  }
+};
+
+// Initialize the application
+async function initializeMap() {
+  // Initialize UI elements
+  uiUtils.initializeControlToggle();
+  uiUtils.initializeLegend();
+  const layers = await uiUtils.initializeLayerControls();
+  
+  // Check if map exists and update status
+  await svgUtils.checkAndDisplayMapInfo();
+  
+  // Set wrapping to true
+  mapConfig.enableWrapping = true;
+  
+  // Initialize the map with standard Simple CRS
+  const map = L.map('map', {
+    crs: L.CRS.Simple,
+    minZoom: -3,
+    maxZoom: 6,
+    zoomSnap: 0.2,
+    zoomDelta: 0.9,
+    attributionControl: false,
+    center: [mapConfig.svgHeight/2, mapConfig.svgWidth/2], // Center on the map
+    zoom: mapConfig.defaultZoom || 0
+  });
+
+  // Calculate bounds based on the SVG dimensions
+  const bounds = [
+    [0, 0],
+    [mapConfig.svgHeight, mapConfig.svgWidth]
+  ];
+  
+  // Variables to store our SVG layers
+  let mainSvgLayer, leftSvgLayer, rightSvgLayer;
+  
+  // Function to add all SVG layers to the map
+  function addSVGLayers() {
+    // Remove existing layers if they exist
+    if (mainSvgLayer) map.removeLayer(mainSvgLayer);
+    if (leftSvgLayer) map.removeLayer(leftSvgLayer);
+    if (rightSvgLayer) map.removeLayer(rightSvgLayer);
     
-    // Fit the map to the bounds
-    map.fitBounds(bounds, { 
-      animate: false,
-      padding: [0, 0]
-    });
+    // Add the main SVG
+    mainSvgLayer = L.imageOverlay(mapConfig.url, bounds)
+      .on('error', function(e) {
+        console.error('Error loading SVG in Leaflet:', e);
+        document.getElementById('map-status').textContent = 
+          'Using placeholder map for testing.';
+        document.getElementById('map-status').style.color = 'orange';
+        
+        // Create a placeholder colored div as a fallback
+        const placeholderDiv = document.createElement('div');
+        placeholderDiv.style.position = 'absolute';
+        placeholderDiv.style.top = '0';
+        placeholderDiv.style.left = '0';
+        placeholderDiv.style.width = '100%';
+        placeholderDiv.style.height = '100%';
+        placeholderDiv.style.backgroundColor = '#D5FFFF';
+        placeholderDiv.style.zIndex = '-1';
+        document.getElementById('map').appendChild(placeholderDiv);
+      })
+      .addTo(map);
     
-    // Handle window resize
-    window.addEventListener('resize', function() {
-      // Re-center the map to maintain position
-      const currCenter = map.getCenter();
-      
-      // Update the SVG layers
-      addSVGLayers();
-      
-      // Re-fit bounds if needed
-      map.invalidateSize();
-      
-      // Restore center and zoom
-      map.setView(currCenter, map.getZoom(), {animate: false});
-    });
-    
-    // Initialize the map editor with the map instance
-    const editor = new IxMapEditor({
-      containerId: 'map',
-      apiBaseUrl: '/api',
-      labelCategories: mapConfig.labelCategories
-    });
-    
-    // Set the map reference in the editor
-    editor.setMap(map);
-    
-    // Add custom label wrapping logic
     if (mapConfig.enableWrapping) {
-      // Store the original updateVisibleLabels method
-      const originalUpdateVisibleLabels = editor.updateVisibleLabels;
+      // Create bounds for left copy (shifted left by the width of the map)
+      const leftBounds = [
+        [0, -mapConfig.svgWidth],
+        [mapConfig.svgHeight, 0]
+      ];
       
-      // Override the updateVisibleLabels method to handle wrapping
-      editor.updateVisibleLabels = function() {
-        // Call the original method first
-        originalUpdateVisibleLabels.call(this);
-        
-        // Only proceed if we have a map and label layer group
-        if (!this.map || !this.labelLayerGroup) return;
-        
-        const currentZoom = this.map.getZoom();
-        
-        // Add wrapped copies of labels near the edges
-        this.labels.forEach(label => {
-          if (currentZoom >= (label.minZoom || -3)) {
-            // Add labels near right edge to left side
-            if (label.x > mapConfig.svgWidth * 0.75) {
-              this.addLabelToMap({
-                ...label,
-                x: label.x - mapConfig.svgWidth
-              }, false);
-            }
-            
-            // Add labels near left edge to right side
-            if (label.x < mapConfig.svgWidth * 0.25) {
-              this.addLabelToMap({
-                ...label,
-                x: label.x + mapConfig.svgWidth
-              }, false);
-            }
-          }
-        });
-        
-        // Do the same for pending labels
-        this.pendingLabels.forEach(label => {
-          if (currentZoom >= (label.minZoom || -3)) {
-            // Add labels near right edge to left side
-            if (label.x > mapConfig.svgWidth * 0.75) {
-              this.addLabelToMap({
-                ...label,
-                x: label.x - mapConfig.svgWidth
-              }, true);
-            }
-            
-            // Add labels near left edge to right side
-            if (label.x < mapConfig.svgWidth * 0.25) {
-              this.addLabelToMap({
-                ...label,
-                x: label.x + mapConfig.svgWidth
-              }, true);
-            }
-          }
-        });
-      };
+      // Create bounds for right copy (shifted right by the width of the map)
+      const rightBounds = [
+        [0, mapConfig.svgWidth],
+        [mapConfig.svgHeight, mapConfig.svgWidth * 2]
+      ];
       
-      // Override showLabelCreationForm to handle wrapping coordinates
-      const originalShowLabelCreationForm = editor.showLabelCreationForm;
+      // Add left copy
+      leftSvgLayer = L.imageOverlay(mapConfig.url, leftBounds).addTo(map);
       
-      editor.showLabelCreationForm = function(latlng) {
-        // Normalize the longitude (x coordinate)
-        let normalizedLng = latlng.lng;
-        while (normalizedLng < 0) normalizedLng += mapConfig.svgWidth;
-        while (normalizedLng > mapConfig.svgWidth) normalizedLng -= mapConfig.svgWidth;
-        
-        // Call the original method with normalized coordinates
-        originalShowLabelCreationForm.call(this, {
-          lat: latlng.lat,
-          lng: normalizedLng
-        });
-      };
-    }
-    
-    // Load the labels using the editor
-    await editor.loadLabels();
-    
-    // Check for label to view from sessionStorage
-    const viewLabel = sessionStorage.getItem('ixmaps-view-label');
-    if (viewLabel) {
-      try {
-        const labelData = JSON.parse(viewLabel);
-        // Pan to the location and zoom
-        map.setView([labelData.y, labelData.x], labelData.zoom || 0);
-        // Remove from session storage
-        sessionStorage.removeItem('ixmaps-view-label');
-      } catch (e) {
-        console.error('Error parsing view label data:', e);
-      }
+      // Add right copy
+      rightSvgLayer = L.imageOverlay(mapConfig.url, rightBounds).addTo(map);
     }
   }
   
-  // Start the application when page loads
-  document.addEventListener('DOMContentLoaded', initializeMap);
+  // Add SVG layers initially
+  addSVGLayers();
+  
+  // Add custom panning logic for wrapping
+  if (mapConfig.enableWrapping) {
+    map.on('moveend', function() {
+      const center = map.getCenter();
+      
+      // If the map is panned beyond the bounds, adjust the center
+      if (center.lng < 0) {
+        // Panned too far left, wrap to right
+        map.panTo([center.lat, center.lng + mapConfig.svgWidth], {animate: false});
+      } else if (center.lng > mapConfig.svgWidth) {
+        // Panned too far right, wrap to left
+        map.panTo([center.lat, center.lng - mapConfig.svgWidth], {animate: false});
+      }
+    });
+  }
+  
+  // Fit the map to the bounds
+  map.fitBounds(bounds, { 
+    animate: false,
+    padding: [0, 0]
+  });
+  
+  // Handle window resize
+  window.addEventListener('resize', function() {
+    // Re-center the map to maintain position
+    const currCenter = map.getCenter();
+    
+    // Update the SVG layers
+    addSVGLayers();
+    
+    // Re-fit bounds if needed
+    map.invalidateSize();
+    
+    // Restore center and zoom
+    map.setView(currCenter, map.getZoom(), {animate: false});
+  });
+  
+  // Initialize the map editor with the map instance
+  const editor = new IxMapEditor({
+    containerId: 'map',
+    apiBaseUrl: '/api',
+    labelCategories: mapConfig.labelCategories
+  });
+  
+  // Set the map reference in the editor
+  editor.setMap(map);
+  
+  // Add custom label wrapping logic
+  if (mapConfig.enableWrapping) {
+    // Store the original updateVisibleLabels method
+    const originalUpdateVisibleLabels = editor.updateVisibleLabels;
+    
+    // Override the updateVisibleLabels method to handle wrapping
+    editor.updateVisibleLabels = function() {
+      // Call the original method first
+      originalUpdateVisibleLabels.call(this);
+      
+      // Only proceed if we have a map and label layer group
+      if (!this.map || !this.labelLayerGroup) return;
+      
+      const currentZoom = this.map.getZoom();
+      
+      // Add wrapped copies of labels near the edges
+      this.labels.forEach(label => {
+        if (currentZoom >= (label.minZoom || -3)) {
+          // Add labels near right edge to left side
+          if (label.x > mapConfig.svgWidth * 0.75) {
+            this.addLabelToMap({
+              ...label,
+              x: label.x - mapConfig.svgWidth
+            }, false);
+          }
+          
+          // Add labels near left edge to right side
+          if (label.x < mapConfig.svgWidth * 0.25) {
+            this.addLabelToMap({
+              ...label,
+              x: label.x + mapConfig.svgWidth
+            }, false);
+          }
+        }
+      });
+      
+      // Do the same for pending labels
+      this.pendingLabels.forEach(label => {
+        if (currentZoom >= (label.minZoom || -3)) {
+          // Add labels near right edge to left side
+          if (label.x > mapConfig.svgWidth * 0.75) {
+            this.addLabelToMap({
+              ...label,
+              x: label.x - mapConfig.svgWidth
+            }, true);
+          }
+          
+          // Add labels near left edge to right side
+          if (label.x < mapConfig.svgWidth * 0.25) {
+            this.addLabelToMap({
+              ...label,
+              x: label.x + mapConfig.svgWidth
+            }, true);
+          }
+        }
+      });
+    };
+    
+    // Override showLabelCreationForm to handle wrapping coordinates
+    const originalShowLabelCreationForm = editor.showLabelCreationForm;
+    
+    editor.showLabelCreationForm = function(latlng) {
+      // Normalize the longitude (x coordinate)
+      let normalizedLng = latlng.lng;
+      while (normalizedLng < 0) normalizedLng += mapConfig.svgWidth;
+      while (normalizedLng > mapConfig.svgWidth) normalizedLng -= mapConfig.svgWidth;
+      
+      // Call the original method with normalized coordinates
+      originalShowLabelCreationForm.call(this, {
+        lat: latlng.lat,
+        lng: normalizedLng
+      });
+    };
+  }
+  
+  // Load the labels using the editor
+  await editor.loadLabels();
+  
+  // Check for label to view from sessionStorage
+  const viewLabel = sessionStorage.getItem('ixmaps-view-label');
+  if (viewLabel) {
+    try {
+      const labelData = JSON.parse(viewLabel);
+      // Pan to the location and zoom
+      map.setView([labelData.y, labelData.x], labelData.zoom || 0);
+      // Remove from session storage
+      sessionStorage.removeItem('ixmaps-view-label');
+    } catch (e) {
+      console.error('Error parsing view label data:', e);
+    }
+  }
+}
+
+// Start the application when page loads
+document.addEventListener('DOMContentLoaded', initializeMap);

@@ -7,7 +7,7 @@
 class IxMapEditor {
   constructor(options) {
     this.mapContainerId = options.containerId || 'map';
-    this.apiBaseUrl = options.apiBaseUrl || '/api';
+    this.apiBaseUrl = options.apiBaseUrl || '/data/maps/ixmaps/public/api';
     this.sessionId = localStorage.getItem('ixmaps-session-id') || 'dummy-session-id';
     
     // State variables
