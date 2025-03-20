@@ -55,3 +55,62 @@ html, body {
 .measure-control {
   background-color: white;
 }
+
+/* New styles for enhanced UI elements */
+.custom-scale-control {
+  position: relative;
+  transition: all 0.3s ease;
+  margin-bottom: 10px !important;
+}
+
+.scale-toggle-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 16px;
+  height: 16px;
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+  color: white;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: center;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.scale-toggle-btn:hover {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.scale-key-container {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.scale-key-item {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+}
+
+.scale-key-color {
+  height: 10px;
+  margin-right: 8px;
+  background-color: #333;
+}
+
+.coordinates-display {
+  background-color: rgba(255, 255, 255, 0.8);
+  padding: 5px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: Arial, sans-serif;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+  margin-bottom: 5px;
+  pointer-events: none;
+  z-index: 1000;
+}

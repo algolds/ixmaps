@@ -1,3 +1,7 @@
+/**
+ * IxMaps - Full Implementation with Prime Meridian and Fixed Scaling
+ */
+
 document.addEventListener('DOMContentLoaded', function() {
   initToasts();
   initMap();
@@ -159,22 +163,78 @@ function hideToast(toastId) {
   }, 300);
 }
 
+// Function to load SVG and get its dimensions
+function loadSVGDimensions(url) {
+  return new Promise((resolve, reject) => {
+    // Try to load the SVG
+    fetch(url)
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Failed to load SVG: ${response.status} ${response.statusText}`);
+        }
+        return response.text();
+      })
+      .then(svgText => {
+        // Try to extract viewBox or width/height
+        const viewBoxMatch = svgText.match(/viewBox="([^"]+)"/);
+        const widthMatch = svgText.match(/width="([^"]+)"/);
+        const heightMatch = svgText.match(/height="([^"]+)"/);
+        
+        if (viewBoxMatch) {
+          const viewBox = viewBoxMatch[1].split(/\s+/).map(Number);
+          resolve({
+            width: viewBox[2],
+            height: viewBox[3]
+          });
+        } else if (widthMatch && heightMatch) {
+          resolve({
+            width: parseFloat(widthMatch[1]),
+            height: parseFloat(heightMatch[1])
+          });
+        } else {
+          // Default dimensions if we couldn't extract from SVG
+          resolve({
+            width: 1920,
+            height: 1080
+          });
+        }
+      })
+      .catch(error => {
+        console.error("Error loading SVG:", error);
+        // Return default dimensions on error
+        resolve({
+          width: 1920,
+          height: 1080
+        });
+      });
+  });
+}
+
 function initMap() {
-  // Map configuration
+  // Map configuration with raw map dimensions
   const config = {
-    mainMapPath: '/data/maps/ixmaps/public/map.svg',
-    climateMapPath: '/data/maps/ixmaps/public/climate.svg',
+    mainMapPath: 'map.svg',
+    climateMapPath: 'climate.svg',
     svgWidth: 1920,  // Default width, will be adjusted when SVG loads
     svgHeight: 1080, // Default height, will be adjusted when SVG loads
-    initialZoom: 4,  // Doubled the initial zoom
-    minZoom: 1,
-    maxZoom: 6
+    initialZoom: 2,  
+    minZoom: -2,
+    maxZoom: 6,
+    // Raw map dimensions and coordinate system parameters
+    rawWidth: 8202,
+    rawHeight: 4900,
+    pixelsPerLongitude: 45.5666,
+    pixelsPerLatitude: 27.2222,
+    equatorY: 2450,
+    primeMeridianX: 4101,
+    sqMilesPerPixel: 10,
+    sqKmPerPixel: 25.90
   };
 
   // Create the Leaflet map
-  const map = L.map('map', {
+  window.map = L.map('map', {
     crs: L.CRS.Simple,
-    minZoom: config.minZoom,
+    minZoom: -0.4,
     maxZoom: config.maxZoom,
     zoomSnap: 0.25,
     zoomDelta: 0.5,
@@ -183,10 +243,46 @@ function initMap() {
     zoom: config.initialZoom
   });
 
+  // Make map accessible globally
+  window.mapConfig = config;
+  
   // Add attribution control
   L.control.attribution({
-    prefix: 'IxMaps v1.0'
+    prefix: 'IxMaps v3.0'
   }).addTo(map);
+  
+  // Implement key coordinate functions
+  window.calculatePixelDistance = calculatePixelDistance;
+  
+  // Calculate scale factor between raw map and display
+  function calculateScaleFactor() {
+    // Use the current display size vs raw map size
+    const mapWidth = map.getContainer().clientWidth;
+    const mapHeight = map.getContainer().clientHeight;
+    
+    // Calculate width and height scale factors
+    const widthScale = config.svgWidth / config.rawWidth;
+    const heightScale = config.svgHeight / config.rawHeight;
+    
+    // Use the smaller scale to maintain proportions
+    return Math.min(widthScale, heightScale);
+  }
+  
+  // Calculate pixel distance
+  function calculatePixelDistance(latlng1, latlng2) {
+    try {
+      const point1 = map.latLngToContainerPoint(latlng1);
+      const point2 = map.latLngToContainerPoint(latlng2);
+      
+      const dx = point2.x - point1.x;
+      const dy = point2.y - point1.y;
+      
+      return Math.sqrt(dx * dx + dy * dy);
+    } catch (e) {
+      console.error('Error calculating pixel distance:', e);
+      return 0;
+    }
+  }
   
   // Add distance measurement tool
   const measureControl = L.control({
@@ -284,15 +380,15 @@ function initMap() {
           dashArray: '5, 7'
         }).addTo(measureLayer);
         
-        // Calculate distance
+        // Calculate distance using fixed formula
         const pixelDist = calculatePixelDistance(
           measurePoints[lastIndex - 1],
-          measurePoints[lastIndex],
-          map
+          measurePoints[lastIndex]
         );
         
-        // Convert to square miles
-        const sqMilesPerPixel = 10 / Math.pow(2, map.getZoom());
+        // Convert to square miles based on fixed scale
+        const zoom = map.getZoom();
+        const sqMilesPerPixel = config.sqMilesPerPixel / Math.pow(2, zoom);
         const squareMiles = pixelDist * sqMilesPerPixel;
         
         // Show distance label
@@ -300,7 +396,7 @@ function initMap() {
         L.marker(midPoint, {
           icon: L.divIcon({
             className: 'distance-label',
-            html: `${squareMiles.toFixed(1)} sq mi<br>${pixelDist.toFixed(1)} px`,
+            html: `${squareMiles.toFixed(1)} mi`,
             iconSize: [80, 40],
             iconAnchor: [40, 20]
           })
@@ -321,6 +417,12 @@ function initMap() {
       map.off('click', addMeasurePoint);
       map.off('dblclick', finishMeasuring);
       
+      // Remove instructions if present
+      const instructions = document.getElementById('measure-instructions');
+      if (instructions && instructions.parentNode) {
+        instructions.parentNode.removeChild(instructions);
+      }
+      
       // Calculate total distance if we have multiple points
       if (measurePoints.length > 1) {
         let totalPixelDistance = 0;
@@ -328,18 +430,18 @@ function initMap() {
         for (let i = 1; i < measurePoints.length; i++) {
           totalPixelDistance += calculatePixelDistance(
             measurePoints[i - 1],
-            measurePoints[i],
-            map
+            measurePoints[i]
           );
         }
         
-        const sqMilesPerPixel = 10 / Math.pow(2, map.getZoom());
+        const zoom = map.getZoom();
+        const sqMilesPerPixel = config.sqMilesPerPixel / Math.pow(2, zoom);
         const totalSquareMiles = totalPixelDistance * sqMilesPerPixel;
         
         // Show total distance as toast with actions
         const toastContent = `
           <div>
-            <strong>Total:</strong> ${totalSquareMiles.toFixed(1)} sq mi (${totalPixelDistance.toFixed(1)} px)
+            <strong>Total:</strong> ${totalSquareMiles.toFixed(1)} mi (${totalPixelDistance.toFixed(1)} px)
             <div class="toast-actions">
               <button id="clear-measurements-btn" class="toast-btn">Clear</button>
               <button id="dismiss-toast-btn" class="toast-btn toast-btn-secondary">Dismiss</button>
@@ -373,16 +475,6 @@ function initMap() {
       }
     }
     
-    function calculatePixelDistance(latlng1, latlng2, map) {
-      const point1 = map.latLngToContainerPoint(latlng1);
-      const point2 = map.latLngToContainerPoint(latlng2);
-      
-      const dx = point2.x - point1.x;
-      const dy = point2.y - point1.y;
-      
-      return Math.sqrt(dx * dx + dy * dy);
-    }
-    
     return container;
   };
   
@@ -398,6 +490,7 @@ function initMap() {
     position: 'bottomright'
   });
   
+  // Improved custom scale control
   customScale.onAdd = function(map) {
     const div = L.DomUtil.create('div', 'custom-scale-control');
     div.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
@@ -410,7 +503,7 @@ function initMap() {
     div.style.color = '#333';
     
     // Initial creation of scale element
-    div.innerHTML = '<strong>Map Scale:</strong>';
+    div.innerHTML = '<strong>Map Scale</strong>';
     updateScale();
     
     // Update scale when map zooms
@@ -424,38 +517,73 @@ function initMap() {
       }
       
       const zoom = map.getZoom();
-      const sqMilesPerPixel = 10 / Math.pow(2, zoom);
-      const sqMilesPer100px = 100 * sqMilesPerPixel;
+      
+      // Calculate scales based on raw map dimensions
+      const zoomFactor = Math.pow(2, zoom);
+      const scaleFactor = calculateScaleFactor();
+      const milesPerPixel = config.sqMilesPerPixel / zoomFactor;
+      const kmPerPixel = config.sqKmPerPixel / zoomFactor;
       
       // Create container for scale bar
       const scaleBarContainer = document.createElement('div');
       scaleBarContainer.className = 'scale-bar-container';
       scaleBarContainer.style.marginTop = '5px';
-      scaleBarContainer.style.position = 'relative';
       
       // Create scale bar
-      const bar100px = document.createElement('div');
-      bar100px.style.width = '100px';
-      bar100px.style.height = '20px';
-      bar100px.style.backgroundColor = '#333';
-      bar100px.style.position = 'relative';
-      bar100px.style.display = 'flex';
-      bar100px.style.alignItems = 'center';
-      bar100px.style.justifyContent = 'center';
+      const scaleBar = document.createElement('div');
+      scaleBar.style.backgroundColor = '#333';
+      scaleBar.style.height = '8px';
+      scaleBar.style.width = '100px';
+      scaleBar.style.position = 'relative';
       
-      // Add label inside the bar
-      const scaleLabel = document.createElement('div');
-      scaleLabel.textContent = `100 px = ${sqMilesPer100px.toFixed(0)} sq mi`;
-      scaleLabel.style.color = 'white';
-      scaleLabel.style.fontSize = '10px';
-      scaleLabel.style.fontWeight = 'bold';
-      scaleLabel.style.textShadow = '1px 1px 1px rgba(0,0,0,0.5)';
+      // Add scale information
+      const scaleInfo = document.createElement('div');
+      scaleInfo.style.marginTop = '5px';
+      scaleInfo.style.fontSize = '10px';
+      scaleInfo.style.fontWeight = 'bold';
+      scaleInfo.innerHTML = `
+        1px = ${milesPerPixel.toFixed(2)} sq mi (${kmPerPixel.toFixed(2)} sq km)<br>
+        Map Scale: 1:${Math.round(1 / scaleFactor * 1000)}
+      `;
       
-      bar100px.appendChild(scaleLabel);
-      scaleBarContainer.appendChild(bar100px);
+      // Add tick marks
+      const ticksContainer = document.createElement('div');
+      ticksContainer.style.position = 'relative';
+      ticksContainer.style.height = '4px';
+      
+      // Start tick
+      const startTick = document.createElement('div');
+      startTick.style.position = 'absolute';
+      startTick.style.left = '0';
+      startTick.style.height = '4px';
+      startTick.style.width = '1px';
+      startTick.style.backgroundColor = '#333';
+      ticksContainer.appendChild(startTick);
+      
+      // Middle tick
+      const middleTick = document.createElement('div');
+      middleTick.style.position = 'absolute';
+      middleTick.style.left = '50px';
+      middleTick.style.height = '4px';
+      middleTick.style.width = '1px';
+      middleTick.style.backgroundColor = '#333';
+      ticksContainer.appendChild(middleTick);
+      
+      // End tick
+      const endTick = document.createElement('div');
+      endTick.style.position = 'absolute';
+      endTick.style.left = '100px';
+      endTick.style.height = '4px';
+      endTick.style.width = '1px';
+      endTick.style.backgroundColor = '#333';
+      ticksContainer.appendChild(endTick);
+      
+      // Assemble the scale
+      scaleBarContainer.appendChild(ticksContainer);
+      scaleBarContainer.appendChild(scaleBar);
+      scaleBarContainer.appendChild(scaleInfo);
       div.appendChild(scaleBarContainer);
     }
-    
     return div;
   };
   
@@ -547,57 +675,13 @@ function initMap() {
         map.panTo([center.lat, center.lng - config.svgWidth], {animate: false});
       }
     });
+    
+    // Show success message
+    showToast('Map loaded successfully', 'success', 3000);
   })
   .catch(error => {
     console.error("Error loading SVG maps:", error);
     document.getElementById('loading-indicator').textContent = 
       'Error loading maps. Please try refreshing the page.';
-  });
-}
-
-// Function to load SVG and get its dimensions
-function loadSVGDimensions(url) {
-  return new Promise((resolve, reject) => {
-    // Try to load the SVG
-    fetch(url)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error(`Failed to load SVG: ${response.status} ${response.statusText}`);
-        }
-        return response.text();
-      })
-      .then(svgText => {
-        // Try to extract viewBox or width/height
-        const viewBoxMatch = svgText.match(/viewBox="([^"]+)"/);
-        const widthMatch = svgText.match(/width="([^"]+)"/);
-        const heightMatch = svgText.match(/height="([^"]+)"/);
-        
-        if (viewBoxMatch) {
-          const viewBox = viewBoxMatch[1].split(/\s+/).map(Number);
-          resolve({
-            width: viewBox[2],
-            height: viewBox[3]
-          });
-        } else if (widthMatch && heightMatch) {
-          resolve({
-            width: parseFloat(widthMatch[1]),
-            height: parseFloat(heightMatch[1])
-          });
-        } else {
-          // Default dimensions if we couldn't extract from SVG
-          resolve({
-            width: 1920,
-            height: 1080
-          });
-        }
-      })
-      .catch(error => {
-        console.error("Error loading SVG:", error);
-        // Return default dimensions on error
-        resolve({
-          width: 1920,
-          height: 1080
-        });
-      });
   });
 }
