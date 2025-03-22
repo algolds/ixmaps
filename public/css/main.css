@@ -2,6 +2,7 @@ html, body {
   height: 100%;
   margin: 0;
   padding: 0;
+  font-family: Arial, sans-serif;
 }
 
 #map {
@@ -103,6 +104,51 @@ html, body {
   background-color: #333;
 }
 
+/* Coordinate system styles */
+.grid-label {
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 1px solid #666;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 10px;
+  font-weight: bold;
+  color: #333;
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.prime-meridian-label {
+  background-color: rgba(255, 128, 0, 0.8);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 12px;
+  text-align: center;
+  white-space: nowrap;
+  text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+  pointer-events: none;
+}
+
+.named-latitude-label {
+  background-color: rgba(0, 102, 204, 0.7);
+  color: white;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
+  text-shadow: 1px 1px 1px rgba(0,0,0,0.5);
+  pointer-events: none;
+  z-index: 500;
+}
+
+.equator-label {
+  background-color: rgba(255, 69, 0, 0.8);
+}
+
 .coordinates-display {
   background-color: rgba(255, 255, 255, 0.8);
   padding: 5px 10px;
@@ -113,4 +159,8 @@ html, body {
   margin-bottom: 5px;
   pointer-events: none;
   z-index: 1000;
+}
+
+.ixmap-coordinates-display {
+  min-width: 200px;
 }

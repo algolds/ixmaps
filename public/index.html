@@ -3,7 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IxMaps™ - Beta</title>
+  <title>IxMaps™ - DEVELOPMENT VERSION</title>
+  
+  <!-- Preload critical resources -->
+  <link rel="preload" href="js/main.js" as="script">
+  <link rel="preload" href="js/coordinates.js" as="script">
+  <link rel="preload" href="css/main.css" as="style">
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" as="style">
+  <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" as="script">
+  
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
   <!-- Custom CSS -->
@@ -15,9 +23,11 @@
 
   <!-- Leaflet JS -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
-  <!-- Main JS -->
+  
+  <!-- Main JS - load with higher priority -->
   <script src="js/main.js"></script>
+  
+  <!-- Load coordinate system and scale immediately after main script -->
   <script src="js/coordinates.js"></script>
-
 </body>
 </html>
