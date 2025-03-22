@@ -404,13 +404,14 @@ function initMap() {
     zoomSnap: 0.25,
     zoomDelta: 0.5,
     attributionControl: false,
-    center: [0, 0], // Will be adjusted after loading SVGs
+    // Center at prime meridian immediately instead of [0,0]
+    center: [config.svgHeight / 2, config.primeMeridianX],
     zoom: config.initialZoom,
     wheelPxPerZoomLevel: 120, // Make zoom less sensitive
-    fadeAnimation: true, // Disable fade animations for better performance
-    zoomAnimation: true, // Keep zoom animation for better user experience
+    fadeAnimation: true, 
+    zoomAnimation: true, 
     markerZoomAnimation: true,
-    preferCanvas: true // Use canvas for better performance
+    preferCanvas: true 
   });
 
   // Make map accessible globally
@@ -418,7 +419,7 @@ function initMap() {
   
   // Add attribution control
   L.control.attribution({
-    prefix: 'IxMaps™ v3.32 Beta'
+    prefix: 'IxMaps™ v3.33 Beta'
   }).addTo(map);
   
   // Implement key coordinate functions
@@ -803,14 +804,14 @@ function initMap() {
   Promise.all([
     loadSVGDimensions(config.mainMapPath),
     loadSVGDimensions(config.climateMapPath),
-    loadSVGDimensions(config.bordersMapPath) // Add borders SVG loading
+    loadSVGDimensions(config.bordersMapPath)
   ])
   .then(([mainDimensions, climateDimensions, bordersDimensions]) => {
     // Use dimensions from main map
     config.svgWidth = mainDimensions.width;
     config.svgHeight = mainDimensions.height;
     
-    // Calculate bounds
+    // Calculate bounds - but don't fitBounds to keep our initial center
     const bounds = [
       [0, 0],
       [config.svgHeight, config.svgWidth]

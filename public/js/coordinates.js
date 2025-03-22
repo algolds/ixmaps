@@ -217,6 +217,24 @@ function drawGrid() {
   // Calculate pixels per degree for longitude
   const pixelsPerDegree = mapConfig.svgWidth / 360;
   
+  // Track labeled positions to prevent overlap
+  const labeledPositions = [];
+  const LABEL_MIN_DISTANCE = 50; // Minimum distance between labels in pixels
+  
+  /**
+   * Check if a new label position would overlap with existing ones
+   * @param {Number} position - X position for the label
+   * @returns {Boolean} - true if position is safe (no overlap), false otherwise
+   */
+  function isLabelPositionSafe(position) {
+    for (let i = 0; i < labeledPositions.length; i++) {
+      if (Math.abs(position - labeledPositions[i]) < LABEL_MIN_DISTANCE) {
+        return false;
+      }
+    }
+    return true;
+  }
+  
   // Draw the prime meridian (0°) and its wrapped instances
   const drawMeridian = function(xPosition) {
     if (xPosition >= visibleWest - bufferWidth && xPosition <= visibleEast + bufferWidth) {
@@ -233,14 +251,20 @@ function drawGrid() {
       // Prime meridian label
       if (showLabels) {
         const meridianLabelPos = L.latLng(southPoint.y + 20, xPosition);
-        L.marker(meridianLabelPos, {
-          icon: L.divIcon({
-            className: 'grid-label prime-meridian-label',
-            html: '0°',
-            iconSize: [40, 20],
-            iconAnchor: [20, 0]
-          })
-        }).addTo(gridLayer);
+        // Add label only if it won't overlap with existing ones
+        if (isLabelPositionSafe(xPosition)) {
+          L.marker(meridianLabelPos, {
+            icon: L.divIcon({
+              className: 'grid-label prime-meridian-label',
+              html: '0°',
+              iconSize: [40, 20],
+              iconAnchor: [20, 0]
+            })
+          }).addTo(gridLayer);
+          
+          // Record this position
+          labeledPositions.push(xPosition);
+        }
       }
     }
   };
@@ -268,14 +292,21 @@ function drawGrid() {
       // Add label if it's a major line and labels are enabled
       if (isMajor && showLabels) {
         const labelPos = L.latLng(southPoint.y + 20, svgX);
-        L.marker(labelPos, {
-          icon: L.divIcon({
-            className: 'grid-label',
-            html: labelText,
-            iconSize: [40, 20],
-            iconAnchor: [20, 0]
-          })
-        }).addTo(gridLayer);
+        
+        // Only add label if position is safe (not overlapping)
+        if (isLabelPositionSafe(svgX)) {
+          L.marker(labelPos, {
+            icon: L.divIcon({
+              className: 'grid-label',
+              html: labelText,
+              iconSize: [40, 20],
+              iconAnchor: [20, 0]
+            })
+          }).addTo(gridLayer);
+          
+          // Record this position to prevent future overlaps
+          labeledPositions.push(svgX);
+        }
       }
     }
   };
@@ -283,6 +314,7 @@ function drawGrid() {
   // Calculate how many grid lines we need
   const maxLines = Math.ceil(360 / spacing);
   
+  // First pass: Draw all grid lines
   // Draw lines east of prime meridian
   for (let i = 1; i <= maxLines; i++) {
     const lng = i * spacing;
@@ -293,9 +325,37 @@ function drawGrid() {
     
     // Draw original line and wraparounds
     const svgX = primeMeridianX + offsetPixels;
-    drawLongitudeLine(svgX, `${lng}° E`, isMajor);
-    drawLongitudeLine(svgX - mapConfig.svgWidth, `${lng}° E`, isMajor);
-    drawLongitudeLine(svgX + mapConfig.svgWidth, `${lng}° E`, isMajor);
+    
+    // Draw lines without labels first
+    L.polyline([
+      [southPoint.y, svgX], // Bottom of visible map
+      [northPoint.y, svgX]  // Top of visible map
+    ], {
+      color: '#666',
+      weight: isMajor ? 1.5 : 0.8,
+      opacity: 0.6,
+      dashArray: isMajor ? null : '3,5'
+    }).addTo(gridLayer);
+    
+    L.polyline([
+      [southPoint.y, svgX - mapConfig.svgWidth], // Bottom of visible map
+      [northPoint.y, svgX - mapConfig.svgWidth]  // Top of visible map
+    ], {
+      color: '#666',
+      weight: isMajor ? 1.5 : 0.8,
+      opacity: 0.6,
+      dashArray: isMajor ? null : '3,5'
+    }).addTo(gridLayer);
+    
+    L.polyline([
+      [southPoint.y, svgX + mapConfig.svgWidth], // Bottom of visible map
+      [northPoint.y, svgX + mapConfig.svgWidth]  // Top of visible map
+    ], {
+      color: '#666',
+      weight: isMajor ? 1.5 : 0.8,
+      opacity: 0.6,
+      dashArray: isMajor ? null : '3,5'
+    }).addTo(gridLayer);
   }
   
   // Draw lines west of prime meridian
@@ -308,9 +368,97 @@ function drawGrid() {
     
     // Draw original line and wraparounds
     const svgX = primeMeridianX - offsetPixels;
-    drawLongitudeLine(svgX, `${lng}° W`, isMajor);
-    drawLongitudeLine(svgX - mapConfig.svgWidth, `${lng}° W`, isMajor);
-    drawLongitudeLine(svgX + mapConfig.svgWidth, `${lng}° W`, isMajor);
+    
+    // Draw lines without labels first
+    L.polyline([
+      [southPoint.y, svgX], // Bottom of visible map
+      [northPoint.y, svgX]  // Top of visible map
+    ], {
+      color: '#666',
+      weight: isMajor ? 1.5 : 0.8,
+      opacity: 0.6,
+      dashArray: isMajor ? null : '3,5'
+    }).addTo(gridLayer);
+    
+    L.polyline([
+      [southPoint.y, svgX - mapConfig.svgWidth], // Bottom of visible map
+      [northPoint.y, svgX - mapConfig.svgWidth]  // Top of visible map
+    ], {
+      color: '#666',
+      weight: isMajor ? 1.5 : 0.8,
+      opacity: 0.6,
+      dashArray: isMajor ? null : '3,5'
+    }).addTo(gridLayer);
+    
+    L.polyline([
+      [southPoint.y, svgX + mapConfig.svgWidth], // Bottom of visible map
+      [northPoint.y, svgX + mapConfig.svgWidth]  // Top of visible map
+    ], {
+      color: '#666',
+      weight: isMajor ? 1.5 : 0.8,
+      opacity: 0.6,
+      dashArray: isMajor ? null : '3,5'
+    }).addTo(gridLayer);
+  }
+  
+  // Second pass: Add labels with overlap prevention
+  // Draw labels for east lines
+  for (let i = 1; i <= maxLines; i++) {
+    const lng = i * spacing;
+    const isMajor = lng % 30 === 0;
+    if (!isMajor || !showLabels) continue;
+    
+    const offsetPixels = lng * pixelsPerDegree;
+    const svgX = primeMeridianX + offsetPixels;
+    
+    // Try all three possible positions (original, left wrap, right wrap)
+    // in order of visibility priority
+    if (svgX >= visibleWest && svgX <= visibleEast && isLabelPositionSafe(svgX)) {
+      addLongitudeLabel(svgX, `${lng}° E`);
+    } else if (svgX - mapConfig.svgWidth >= visibleWest && svgX - mapConfig.svgWidth <= visibleEast && 
+               isLabelPositionSafe(svgX - mapConfig.svgWidth)) {
+      addLongitudeLabel(svgX - mapConfig.svgWidth, `${lng}° E`);
+    } else if (svgX + mapConfig.svgWidth >= visibleWest && svgX + mapConfig.svgWidth <= visibleEast && 
+               isLabelPositionSafe(svgX + mapConfig.svgWidth)) {
+      addLongitudeLabel(svgX + mapConfig.svgWidth, `${lng}° E`);
+    }
+  }
+  
+  // Draw labels for west lines
+  for (let i = 1; i <= maxLines; i++) {
+    const lng = i * spacing;
+    const isMajor = lng % 30 === 0;
+    if (!isMajor || !showLabels) continue;
+    
+    const offsetPixels = lng * pixelsPerDegree;
+    const svgX = primeMeridianX - offsetPixels;
+    
+    // Try all three possible positions (original, left wrap, right wrap)
+    // in order of visibility priority
+    if (svgX >= visibleWest && svgX <= visibleEast && isLabelPositionSafe(svgX)) {
+      addLongitudeLabel(svgX, `${lng}° W`);
+    } else if (svgX - mapConfig.svgWidth >= visibleWest && svgX - mapConfig.svgWidth <= visibleEast && 
+               isLabelPositionSafe(svgX - mapConfig.svgWidth)) {
+      addLongitudeLabel(svgX - mapConfig.svgWidth, `${lng}° W`);
+    } else if (svgX + mapConfig.svgWidth >= visibleWest && svgX + mapConfig.svgWidth <= visibleEast && 
+               isLabelPositionSafe(svgX + mapConfig.svgWidth)) {
+      addLongitudeLabel(svgX + mapConfig.svgWidth, `${lng}° W`);
+    }
+  }
+  
+  // Helper function to add a longitude label and track its position
+  function addLongitudeLabel(xPosition, labelText) {
+    const labelPos = L.latLng(southPoint.y + 20, xPosition);
+    L.marker(labelPos, {
+      icon: L.divIcon({
+        className: 'grid-label',
+        html: labelText,
+        iconSize: [40, 20],
+        iconAnchor: [20, 0]
+      })
+    }).addTo(gridLayer);
+    
+    labeledPositions.push(xPosition);
   }
   
   // Draw latitude lines - only within visible bounds
@@ -356,7 +504,6 @@ function drawGrid() {
     }
   }
 }
-
 /**
  * Draw prime meridian with proper wraparound
  */
@@ -745,6 +892,9 @@ function initCoordinateSystem() {
   const northEast = L.latLng(0, Infinity);
   map.setMaxBounds(L.latLngBounds(southWest, northEast));
   
+ // Center map at prime meridian
+ const centerY = mapConfig.svgHeight / 2;
+ map.panTo([centerY, primeMeridianSvg.x], {animate: true, duration: 1});
   // Make horizontal wraparound seamless
   modifyMapWraparound();
   
