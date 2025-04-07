@@ -1,5 +1,5 @@
 /**
- * IxMaps DEVELOPMENT - v3.3
+ * IxMaps DEVELOPMENT - v3.4
  * Performance Optimized Version with Linear Distance
  * @namespace IxMaps
  */
@@ -379,7 +379,7 @@ function initMap() {
   const config = {
     mainMapPath: 'map.svg',
     climateMapPath: 'climate.svg',
-    bordersMapPath: 'borders.svg', // Add the new borders SVG path
+    bordersMapPath: 'political.svg', // Using political.svg as in paste.txt
     svgWidth: 8200,  // Updated to match SVG dimensions
     svgHeight: 4900, // Updated to match SVG dimensions
     initialZoom: 2,  
@@ -419,7 +419,7 @@ function initMap() {
   
   // Add attribution control
   L.control.attribution({
-    prefix: 'IxMaps™ v3.33 Beta'
+    prefix: 'IxMaps™ v3.4 Beta'
   }).addTo(map);
   
   // Implement key coordinate functions
@@ -831,12 +831,13 @@ function initMap() {
       interactive: false
     });
     
-    // Create borders overlay layer (not added to map by default)
+    // Create borders overlay layer with better opacity settings
+    // Changed opacity to 0.7 for better visibility of the underlying map
     bordersLayer = L.imageOverlay(config.bordersMapPath, bounds, {
       className: 'map-overlay',
       interactive: false,
-      opacity: 0.8 // Slightly transparent to see the main map underneath
-    });
+      opacity: 0.7 // Adjusted opacity for better visualization
+    }).addTo(map); // Added to map by default
 
     // Add wrapped layers for continuity when panning
     // Left copies
@@ -861,8 +862,8 @@ function initMap() {
     ], {
       className: 'map-overlay',
       interactive: false,
-      opacity: 0.8
-    });
+      opacity: 0.7 // Match the opacity of main borders layer
+    }).addTo(map); // Added to map by default
     
     // Right copies
     rightMainLayer = L.imageOverlay(config.mainMapPath, [
@@ -886,8 +887,8 @@ function initMap() {
     ], {
       className: 'map-overlay',
       interactive: false,
-      opacity: 0.8
-    });
+      opacity: 0.7 // Match the opacity of main borders layer
+    }).addTo(map); // Added to map by default
 
     // Center the map
     map.fitBounds(bounds);
@@ -937,6 +938,9 @@ function initMap() {
         map.removeLayer(leftClimateLayer);
         map.removeLayer(rightClimateLayer);
       } else if (e.name === "Political Borders") {
+        map.removeLayer(leftBordersLayer);
+        map.removeLayer(rightBordersLayer);
+        // Remove wrapped borders layers as well
         map.removeLayer(leftBordersLayer);
         map.removeLayer(rightBordersLayer);
       }
