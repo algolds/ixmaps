@@ -2,8 +2,10 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./public/dist/js",
-    "rootDir": "./src/js"
+    "rootDir": "./src/js",
+    "moduleResolution": "node",
+    "allowSyntheticDefaultImports": true
   },
   "include": ["src/js/**/*"],
   "exclude": ["node_modules", "dist", "public/dist"]
-} 
+}

@@ -87,6 +87,7 @@ export interface CountryLabel {
 // Distance calculation result interface
 export interface DistanceResult {
   miles: number;
+  kilometers: number;
   km: number;
 }
 
@@ -194,7 +195,14 @@ export interface SvgPoint {
 // Global window interface extension
 declare global {
   interface Window {
-    IxMaps: IxMapsNamespace;
+    IxMaps: { 
+      Main: {
+        showToast: (message: string, type?: string, duration?: number) => string;
+        hideToast: (toastId: string) => void;
+        calculateScaleFactor: () => number;
+        calculateDistance: (latlng1: LatLng, latlng2: LatLng, unit?: "miles" | "km") => number;
+      }
+    };
     map: LeafletMap;
     mapConfig: MapConfig;
     calculatePixelDistance: (latlng1: L.LatLng, latlng2: L.LatLng) => number;

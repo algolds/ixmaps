@@ -3,6 +3,7 @@
  */
 
 import { Map as LeafletMap } from 'leaflet';
+import L from './leaflet-module';
 
 /**
  * Map bounds configuration
@@ -18,10 +19,29 @@ export interface MapBounds {
  * Map configuration
  */
 export interface MapConfig {
+  masterMapPath: string;
+  baseMapUrl: string;
+  svgWidth: number;
+  svgHeight: number;
+  initialZoom: number;
   minZoom: number;
   maxZoom: number;
-  bounds: MapBounds;
-  baseMapUrl: string;
+  rawWidth: number;
+  rawHeight: number;
+  pixelsPerLongitude: number;
+  pixelsPerLatitude: number;
+  equatorY: number;
+  primeMeridianX: number;
+  milesPerPixel: number;
+  kmPerPixel: number;
+  labelFontSize: number;
+  labelClassName: string;
+  bounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  };
   showCountryLabels: boolean;
 }
 
@@ -68,17 +88,16 @@ export interface LayerVisibility {
   climate: boolean;
   lakes: boolean;
   rivers: boolean;
-  'altitude-1': boolean;
-  'altitude-2': boolean;
-  'altitude-3': boolean;
-  'altitude-4': boolean;
-  'altitude-5': boolean;
-  'altitude-6': boolean;
-  'altitude-7': boolean;
-  'altitude-8': boolean;
-  coastlines: boolean;
-  icecaps: boolean;
+  mountains: boolean;
+  cities: boolean;
+  countries: boolean;
+  states: boolean;
+  territories: boolean;
+  disputed: boolean;
   labels: boolean;
+  grid: boolean;
+  scale: boolean;
+  compass: boolean;
 }
 
 // Country label interface
@@ -92,6 +111,7 @@ export interface CountryLabel {
 
 // Distance calculation result interface
 export interface DistanceResult {
+  kilometers: number;
   miles: number;
   km: number;
 }
@@ -120,7 +140,7 @@ export interface IxMapsNamespace {
     showToast: (message: string, type?: string, duration?: number) => string;
     hideToast: (toastId: string) => void;
     calculateScaleFactor: () => number;
-    calculateDistance: (latlng1: L.LatLng, latlng2: L.LatLng) => DistanceResult;
+    calculateDistance: (latlng1: L.LatLng, latlng2: L.LatLng, unit?: 'miles' | 'km') => number;
     calculatePixelDistance: (latlng1: L.LatLng, latlng2: L.LatLng) => number;
     updateLayerVisibility: () => void;
     getLayerVisibility: () => LayerVisibility;
@@ -135,10 +155,29 @@ export interface IxMapsNamespace {
 declare global {
   interface Window {
     IxMaps: IxMapsNamespace;
-    map: LeafletMap;
+    map: L.Map;
     mapConfig: MapConfig;
+    layerVisibility: LayerVisibility;
+    updateLayerVisibility: () => void;
+    showCountryLabels: () => void;
+    hideCountryLabels: () => void;
     calculatePixelDistance: (latlng1: L.LatLng, latlng2: L.LatLng) => number;
     calculateDistance: (latlng1: L.LatLng, latlng2: L.LatLng) => DistanceResult;
+    originalCalculateDistance: (latlng1: L.LatLng, latlng2: L.LatLng) => DistanceResult;
+    svgToLatLng: (x: number, y: number) => LatLng;
+    latLngToSvg: (lat: number, lng: number) => SvgPoint;
+    svgToCustomLatLng: (x: number, y: number) => LatLng;
+    drawGrid: () => void;
+    drawPrimeMeridian: () => void;
+    showToast: (message: string, type: string, duration: number) => void;
+    initializeCoordinateSystem: () => void;
+    MAP_CONSTANTS: MapConstants;
+    VISIBLE_BOUNDS: VisibleBounds;
+    PRIME_MERIDIAN_REF: PrimeMeridianRef;
+    GRID_STYLE: GridStyle;
+    LABEL_STYLE: LabelStyle;
+    coordSystemInitialized: boolean;
+    clickMarker: L.Marker;
   }
 }
 

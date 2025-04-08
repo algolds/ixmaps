@@ -1,1 +1,1 @@
-{"root":["../src/js/coordinates.ts","../src/js/index.ts","../src/js/leaflet-extensions.d.ts","../src/js/main.ts","../src/js/types.ts"],"version":"5.8.3"}
+{"root":["../src/js/coordinates.ts","../src/js/global.d.ts","../src/js/index.ts","../src/js/leaflet-extensions.d.ts","../src/js/leaflet-module.ts","../src/js/main.ts","../src/js/types.ts","../src/js/components/DistanceCalculator.ts","../src/js/components/LayerManager.ts","../src/js/components/MapInitializer.ts","../src/js/components/SVGLoader.ts","../src/js/components/Toast.ts"],"version":"5.8.3"}

@@ -20,7 +20,7 @@ export function calculateDistance(latlng1: L.LatLng, latlng2: L.LatLng): Distanc
     const point1 = window.map.latLngToContainerPoint(latlng1);
     const point2 = window.map.latLngToContainerPoint(latlng2);
     
-    if (!point1 || !point2) return { miles: 0, km: 0 };
+    if (!point1 || !point2) return { miles: 0, kilometers: 0, km: 0 };
     
     const dx = point2.x - point1.x;
     const dy = point2.y - point1.y;
@@ -43,11 +43,12 @@ export function calculateDistance(latlng1: L.LatLng, latlng2: L.LatLng): Distanc
     
     return {
       miles: miles,
+      kilometers: km,
       km: km
     };
   } catch (e) {
     console.error('Error calculating distance:', e);
-    return { miles: 0, km: 0 };
+    return { miles: 0, kilometers: 0, km: 0 };
   }
 }
 
