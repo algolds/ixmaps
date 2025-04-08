@@ -4,6 +4,8 @@
     "outDir": "./public/dist/js",
     "rootDir": "./src/js",
     "moduleResolution": "node",
+    "module": "ESNext", 
+    "target": "ES2020",
     "allowSyntheticDefaultImports": true,
     "sourceMap": true
   },

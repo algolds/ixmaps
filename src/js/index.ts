@@ -1,5 +1,5 @@
 // Import Leaflet from our module wrapper
-import L from 'leaflet-module';
+import L from './leaflet-module';
 
 // Import local components
 import { MapConfig, LayerVisibility } from './types';
@@ -86,8 +86,8 @@ window.calculateDistance = calculateDistance;
 
 // Initialize the map configuration
 const mapConfig: MapConfig = {
-  masterMapPath: './master-map.svg',
-  baseMapUrl: './master-map.svg',
+  masterMapPath: '/master-map.svg', // Updated path with leading slash
+  baseMapUrl: '/master-map.svg',    // Updated path with leading slash
   svgWidth: 8202,
   svgHeight: 4900,
   initialZoom: 2,
@@ -119,24 +119,48 @@ window.mapConfig = mapConfig;
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     console.log('Initializing IxMaps v4.0...');
-    
+    // Initialize coordinate system if available
+if (typeof window.initializeCoordinateSystem === 'function') {
+  console.log('Trying to initialize coordinate system...');
+  // Wait for map to be fully loaded before initializing the coordinate system
+  setTimeout(() => {
+    try {
+      window.initializeCoordinateSystem();
+      console.log('Coordinate system initialization scheduled');
+    } catch (error) {
+      console.error('Error scheduling coordinate system initialization:', error);
+    }
+  }, 2000); // Increased timeout for better reliability
+} else {
+  console.warn('Coordinate system initialization function not available');
+}
     // Initialize toast notification system first
     initToasts();
     window.showToast('Loading IxMaps...', 'info', 0);
+    
+    // Add debugging to see if SVG is loading
+    console.log('Attempting to load SVG from:', mapConfig.masterMapPath);
     
     // Try to get SVG dimensions for more accurate configuration
     try {
       const dimensions = await loadSVGDimensions(mapConfig.masterMapPath);
       if (dimensions.width && dimensions.height) {
-        mapConfig.svgWidth = dimensions.width;
-        mapConfig.svgHeight = dimensions.height;
-        console.log(`Updated SVG dimensions: ${dimensions.width}x${dimensions.height}`);
+        console.log(`Raw SVG dimensions from file: ${dimensions.width}x${dimensions.height}`);
+        // Only update if dimensions are reasonable (avoid small test values)
+        if (dimensions.width > 500 && dimensions.height > 500) {
+          mapConfig.svgWidth = dimensions.width;
+          mapConfig.svgHeight = dimensions.height;
+          console.log(`Updated SVG dimensions: ${dimensions.width}x${dimensions.height}`);
+        } else {
+          console.warn('SVG dimensions too small, using defaults');
+        }
       }
     } catch (e) {
-      console.warn('Could not load SVG dimensions, using defaults:', e);
+      console.error('Error loading SVG dimensions:', e);
     }
     
     // Initialize the map
+    console.log('Initializing map with config:', mapConfig);
     initializeMap(mapConfig);
     
     // Create layer control

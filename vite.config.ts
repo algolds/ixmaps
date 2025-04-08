@@ -3,15 +3,20 @@ import { resolve } from 'path';
 
 export default defineConfig({
   build: {
-    outDir: 'dist',
+    outDir: 'public/dist',
+    emptyOutDir: false,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'src/js/index.ts'),
       },
       output: {
         entryFileNames: 'js/[name].js',
-        chunkFileNames: 'js/[name].js',
-        assetFileNames: 'assets/[name].[ext]'
+        chunkFileNames: 'js/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+        format: 'es', // Ensure ES module format
+        globals: {
+          leaflet: 'L' // Map the external 'leaflet' import to global 'L' variable
+        }
       },
       external: ['leaflet']
     }
@@ -22,4 +27,4 @@ export default defineConfig({
       'leaflet-module': resolve(__dirname, 'src/js/leaflet-module.ts')
     }
   }
-}); 
+});

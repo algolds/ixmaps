@@ -9,7 +9,41 @@ import * as L from 'leaflet';
 
 // Import types and constants
 import { LatLng, SvgPoint, VisibleBounds, DistanceResult, MapConfig, GridStyle } from './types';
+// Define missing global constants
+window.GRID_STYLE = {
+  MAJOR_LINE_WEIGHT: 1.5,
+  MINOR_LINE_WEIGHT: 0.8,
+  LINE_OPACITY: 0.6,
+  DASH_ARRAY: '5,5',
+  MAJOR_DASH_ARRAY: null,
+  PRIME_MERIDIAN_COLOR: '#FF8000',
+  PRIME_MERIDIAN_WEIGHT: 2.5,
+  PRIME_MERIDIAN_OPACITY: 0.8,
+  PRIME_MERIDIAN_DASH_ARRAY: '8,6',
+  EQUATOR_COLOR: '#FF4500',
+  GRID_COLOR: '#666'
+};
 
+window.LABEL_STYLE = {
+  MIN_DISTANCE: 50,
+  BACKGROUND_COLOR: 'rgba(255, 255, 255, 0.7)',
+  BORDER_COLOR: '#666',
+  BORDER_RADIUS: '3px',
+  FONT_SIZE: '10px',
+  FONT_WEIGHT: 'bold',
+  COLOR: '#333',
+  PRIME_MERIDIAN_BACKGROUND: 'rgba(255, 128, 0, 0.8)',
+  PRIME_MERIDIAN_COLOR: 'white',
+  PRIME_MERIDIAN_PADDING: '3px 8px',
+  PRIME_MERIDIAN_BORDER_RADIUS: '4px',
+  PRIME_MERIDIAN_FONT_SIZE: '12px',
+  PRIME_MERIDIAN_TEXT_SHADOW: '1px 1px 1px rgba(0,0,0,0.5)'
+};
+
+window.VISIBLE_BOUNDS = {
+  northLat: 70,  // Northern visible limit in degrees
+  southLat: -70  // Southern visible limit in degrees
+};
 // Declare Leaflet extensions
 declare module 'leaflet' {
   namespace Util {
@@ -886,12 +920,36 @@ function coordSystemCalculateDistance(latlng1: L.LatLng, latlng2: L.LatLng): Dis
 /**
  * Initialize the coordinate system
  */
+// Add this function to src/js/coordinates.ts, replacing the existing initCoordinateSystem function
+
+/**
+ * Initialize the coordinate system with improved reliability
+ */
 function initCoordinateSystem(): void {
   console.log('Initializing coordinate system...');
   
   // Prevent duplicate initialization
   if (window.coordSystemInitialized) {
     console.log('Coordinate system already initialized, skipping...');
+    return;
+  }
+  
+  // Check for required global objects
+  if (!window.map) {
+    console.error('Map not available, cannot initialize coordinate system');
+    setTimeout(initCoordinateSystem, 1000);
+    return;
+  }
+  
+  if (!window.mapConfig) {
+    console.error('Map config not available, cannot initialize coordinate system');
+    setTimeout(initCoordinateSystem, 1000);
+    return;
+  }
+  
+  // Check that required styles are defined
+  if (!window.GRID_STYLE) {
+    console.error('GRID_STYLE not defined, cannot initialize coordinate system');
     return;
   }
   
@@ -902,8 +960,10 @@ function initCoordinateSystem(): void {
   addCoordinateStyles();
   
   // Override the distance calculation function with our calibrated version
-  window.originalCalculateDistance = window.calculateDistance;
-  window.calculateDistance = coordSystemCalculateDistance;
+  if (window.calculateDistance) {
+    window.originalCalculateDistance = window.calculateDistance;
+    window.calculateDistance = coordSystemCalculateDistance;
+  }
   
   // Replace global functions with our versions
   window.svgToLatLng = svgToLatLng;
@@ -913,114 +973,168 @@ function initCoordinateSystem(): void {
   window.drawPrimeMeridian = drawPrimeMeridian;
   
   // Add coordinate controls to the map
-  const coordDisplay = new CoordDisplayControl();
-  coordDisplay.addTo(window.map);
-  
-  const coordControlPanel = new CoordControlPanel();
-  window.map.addControl(coordControlPanel);
-  
-  const coordToggleControl = new CoordToggleControl();
-  window.map.addControl(coordToggleControl);
+  try {
+    const coordDisplay = new CoordDisplayControl();
+    coordDisplay.addTo(window.map);
+    
+    const coordControlPanel = new CoordControlPanel();
+    window.map.addControl(coordControlPanel);
+    
+    const coordToggleControl = new CoordToggleControl();
+    window.map.addControl(coordToggleControl);
+  } catch (e) {
+    console.error('Error adding coordinate controls:', e);
+  }
   
   // Add grid layer to map
-  gridLayer.addTo(window.map);
+  try {
+    gridLayer.addTo(window.map);
+  } catch (e) {
+    console.error('Error adding grid layer:', e);
+  }
   
   // Calculate prime meridian position
-  primeMeridianSvg = latLngToSvg(primeMeridianRef.lat, primeMeridianRef.lng);
-  console.log('Prime meridian positioned at:', primeMeridianSvg);
+  try {
+    primeMeridianSvg = latLngToSvg(primeMeridianRef.lat, primeMeridianRef.lng);
+    console.log('Prime meridian positioned at:', primeMeridianSvg);
+  } catch (e) {
+    console.error('Error calculating prime meridian position:', e);
+    // Set a default position if calculation fails
+    primeMeridianSvg = { x: window.mapConfig.primeMeridianX || 4101, y: 2450 };
+  }
   
   // Restrict vertical panning but allow horizontal wrapping
-  const southWest = L.latLng(window.mapConfig.svgHeight, -Infinity);
-  const northEast = L.latLng(0, Infinity);
-  window.map.setMaxBounds(L.latLngBounds(southWest, northEast));
+  try {
+    const southWest = L.latLng(window.mapConfig.svgHeight, -Infinity);
+    const northEast = L.latLng(0, Infinity);
+    window.map.setMaxBounds(L.latLngBounds(southWest, northEast));
+  } catch (e) {
+    console.error('Error setting map bounds:', e);
+  }
   
   // Center map at prime meridian
-  const centerY = window.mapConfig.svgHeight / 2;
-  window.map.panTo([centerY, primeMeridianSvg.x], {animate: true, duration: 1});
+  try {
+    const centerY = window.mapConfig.svgHeight / 2;
+    window.map.panTo([centerY, primeMeridianSvg.x], {animate: true, duration: 1});
+  } catch (e) {
+    console.error('Error centering map:', e);
+  }
   
   // Make horizontal wraparound seamless
-  modifyMapWraparound();
+  try {
+    modifyMapWraparound();
+  } catch (e) {
+    console.error('Error modifying map wraparound:', e);
+  }
   
   // Draw initial grid
-  drawGrid();
+  try {
+    drawGrid();
+  } catch (e) {
+    console.error('Error drawing grid:', e);
+  }
   
   // Set up event handlers
   
   // Update coordinate display on mouse move - only show custom coordinates
-  window.map.on('mousemove', function(e: L.LeafletMouseEvent) {
-    const customCoord = svgToCustomLatLng(e.latlng.lng, e.latlng.lat);
-    
-    const display = document.querySelector('.ixmap-coordinates-display');
-    if (display) {
-      display.innerHTML = `
-        <div>Lat: ${formatCoord(customCoord.lat, 'N', 'S')}</div>
-        <div>Lng: ${formatCoord(customCoord.lng, 'E', 'W')}</div>
-      `;
-    }
-  });
+  try {
+    window.map.on('mousemove', function(e: L.LeafletMouseEvent) {
+      try {
+        const customCoord = svgToCustomLatLng(e.latlng.lng, e.latlng.lat);
+        
+        const display = document.querySelector('.ixmap-coordinates-display');
+        if (display) {
+          display.innerHTML = `
+            <div>Lat: ${formatCoord(customCoord.lat, 'N', 'S')}</div>
+            <div>Lng: ${formatCoord(customCoord.lng, 'E', 'W')}</div>
+          `;
+        }
+      } catch (err) {
+        console.error('Error updating coordinate display:', err);
+      }
+    });
+  } catch (e) {
+    console.error('Error setting up mousemove handler:', e);
+  }
   
   // Add click handler for coordinate markers
-  window.map.on('click', addCoordinateMarker);
+  try {
+    window.map.on('click', addCoordinateMarker);
+  } catch (e) {
+    console.error('Error setting up click handler:', e);
+  }
   
   // Update grid on zoom or pan
-  window.map.on('zoomend', updateCoordinateDisplays);
-  window.map.on('moveend', updateCoordinateDisplays);
-  window.map.on('move', updateMapWraparound);
+  try {
+    window.map.on('zoomend', updateCoordinateDisplays);
+    window.map.on('moveend', updateCoordinateDisplays);
+    window.map.on('move', updateMapWraparound);
+  } catch (e) {
+    console.error('Error setting up map event handlers:', e);
+  }
   
   // Update all coordinate displays (grid, meridian)
   function updateCoordinateDisplays(): void {
-    drawGrid();
-    if (document.getElementById('toggle-prime-meridian') && 
-        (document.getElementById('toggle-prime-meridian') as HTMLInputElement).checked) {
-      drawPrimeMeridian();
+    try {
+      drawGrid();
+      if (document.getElementById('toggle-prime-meridian') && 
+          (document.getElementById('toggle-prime-meridian') as HTMLInputElement).checked) {
+        drawPrimeMeridian();
+      }
+    } catch (e) {
+      console.error('Error updating coordinate displays:', e);
     }
   }
   
   // Event handlers for control panel checkboxes
   setTimeout(function() {
-    // Toggle coordinate display
-    const displayToggle = document.getElementById('toggle-coords-display') as HTMLInputElement;
-    if (displayToggle) {
-      displayToggle.addEventListener('change', function() {
-        const display = document.querySelector('.ixmap-coordinates-display');
-        if (display) {
-          (display as HTMLElement).style.display = this.checked ? 'block' : 'none';
-        }
-      });
-    }
-    
-    // Toggle grid
-    const gridToggle = document.getElementById('toggle-coords-grid') as HTMLInputElement;
-    if (gridToggle) {
-      gridToggle.addEventListener('change', function() {
-        if (this.checked) {
-          window.map.addLayer(gridLayer);
+    try {
+      // Toggle coordinate display
+      const displayToggle = document.getElementById('toggle-coords-display') as HTMLInputElement;
+      if (displayToggle) {
+        displayToggle.addEventListener('change', function() {
+          const display = document.querySelector('.ixmap-coordinates-display');
+          if (display) {
+            (display as HTMLElement).style.display = this.checked ? 'block' : 'none';
+          }
+        });
+      }
+      
+      // Toggle grid
+      const gridToggle = document.getElementById('toggle-coords-grid') as HTMLInputElement;
+      if (gridToggle) {
+        gridToggle.addEventListener('change', function() {
+          if (this.checked) {
+            window.map.addLayer(gridLayer);
+            drawGrid();
+          } else {
+            window.map.removeLayer(gridLayer);
+          }
+        });
+      }
+      
+      // Toggle labels
+      const labelsToggle = document.getElementById('toggle-coords-labels') as HTMLInputElement;
+      if (labelsToggle) {
+        labelsToggle.addEventListener('change', function() {
           drawGrid();
-        } else {
-          window.map.removeLayer(gridLayer);
-        }
-      });
-    }
-    
-    // Toggle labels
-    const labelsToggle = document.getElementById('toggle-coords-labels') as HTMLInputElement;
-    if (labelsToggle) {
-      labelsToggle.addEventListener('change', function() {
-        drawGrid();
-      });
-    }
-    
-    // Toggle prime meridian
-    const meridianToggle = document.getElementById('toggle-prime-meridian') as HTMLInputElement;
-    if (meridianToggle) {
-      meridianToggle.addEventListener('change', function() {
-        if (this.checked) {
-          window.map.addLayer(primeMeridianLayer);
-          drawPrimeMeridian();
-        } else {
-          window.map.removeLayer(primeMeridianLayer);
-        }
-      });
+        });
+      }
+      
+      // Toggle prime meridian
+      const meridianToggle = document.getElementById('toggle-prime-meridian') as HTMLInputElement;
+      if (meridianToggle) {
+        meridianToggle.addEventListener('change', function() {
+          if (this.checked) {
+            window.map.addLayer(primeMeridianLayer);
+            drawPrimeMeridian();
+          } else {
+            window.map.removeLayer(primeMeridianLayer);
+          }
+        });
+      }
+    } catch (e) {
+      console.error('Error setting up control panel event handlers:', e);
     }
   }, 500);
   
