@@ -1,5 +1,7 @@
 import * as L from 'leaflet';
 import { MapConfig } from './types';
+import { initializeCoordinateSystem } from './coordinates';  // Import coordinate system
+import { createCoordSystemControlPanel } from './coord-ui';  // Import UI components
 
 // Initialize the map configuration
 const mapConfig: MapConfig = {
@@ -55,6 +57,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Make map available globally
   (window as any).map = map;
+
+  // Create coordinate system UI
+  createCoordSystemControlPanel();
+
+  // Initialize coordinate system
+  try {
+    initializeCoordinateSystem();
+    console.log('Coordinate system initialized successfully');
+  } catch (error) {
+    console.error('Error initializing coordinate system:', error);
+  }
 
   // Hide loading indicator
   const loadingIndicator = document.getElementById('loading-indicator');

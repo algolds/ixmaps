@@ -52,6 +52,42 @@ export const initializeMap = (config: MapConfig): void => {
     L.control.zoom({
       position: 'topleft'
     }).addTo(window.map);
+
+    // Add event listeners for map events
+    window.map.on('zoomend', () => {
+      console.log('Map zoom level:', window.map.getZoom());
+      // Trigger grid redraw if needed
+      if (window.drawGrid) {
+        window.drawGrid();
+      }
+    });
+
+    window.map.on('moveend', () => {
+      console.log('Map center:', window.map.getCenter());
+      // Trigger grid redraw if needed
+      if (window.drawGrid) {
+        window.drawGrid();
+      }
+    });
+
+    // Add resize handler to ensure map renders correctly
+    window.addEventListener('resize', () => {
+      window.map.invalidateSize();
+    });
+
+    // Cleanup function for when map is destroyed
+    window.map.on('unload', () => {
+      // Remove event listeners
+      window.map.off('zoomend');
+      window.map.off('moveend');
+      window.removeEventListener('resize', () => {
+        window.map.invalidateSize();
+      });
+      
+      // Remove the map
+      window.map.remove();
+      console.log('MapInitializer: Map cleaned up');
+    });
     
     console.log('MapInitializer: Map initialized successfully');
   } catch (error) {

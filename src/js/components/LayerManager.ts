@@ -101,17 +101,13 @@ export const createLayerControl = (): void => {
         </div>
       `;
       
-      // Add toggle behavior
-      const toggle = div.querySelector('.control-toggle-button');
-      const layerList = div.querySelector('#layer-list');
-      if (toggle && layerList) {
-        toggle.addEventListener('click', function() {
-          if (layerList.style.display === 'none') {
-            layerList.style.display = 'block';
-            (toggle as HTMLElement).innerHTML = '×';
-          } else {
-            layerList.style.display = 'none';
-            (toggle as HTMLElement).innerHTML = '≡';
+      // Add toggle functionality for the control panel
+      const toggleButton = div.querySelector('.control-toggle-button');
+      if (toggleButton) {
+        toggleButton.addEventListener('click', () => {
+          const layerList = div.querySelector('#layer-list');
+          if (layerList) {
+            layerList.style.display = layerList.style.display === 'none' ? 'block' : 'none';
           }
         });
       }
@@ -120,37 +116,16 @@ export const createLayerControl = (): void => {
     }
   });
   
-  // Add the control to the map
-  new layerControl().addTo(window.map);
+  // Add the layer control to the map
+  const control = new layerControl();
+  control.addTo(window.map);
   
-  // Initialize layer visibility state with all required properties
-  window.layerVisibility = {
-    political: true,
-    climate: false,
-    lakes: false,
-    rivers: false,
-    mountains: false,
-    cities: false,
-    countries: true,
-    states: false,
-    territories: false,
-    disputed: false,
-    labels: true,
-    grid: false,
-    scale: true,
-    compass: true
-  };
-  
-  // Attach event listeners to checkboxes
+  // Attach event listeners to the layer toggles
   attachLayerEventListeners();
-  
-  // Update layer visibility based on initial state
-  window.updateLayerVisibility();
   
   console.log('LayerManager: Layer controls created and initialized');
 };
 
-// Initialize actual map layers
 const initializeLayers = (): void => {
   // Create empty layer groups for each layer type
   layers.political = L.layerGroup().addTo(window.map);
@@ -168,25 +143,103 @@ const initializeLayers = (): void => {
   layers.scale = L.layerGroup().addTo(window.map);
   layers.compass = L.layerGroup().addTo(window.map);
   
+  // Add political boundaries from SVG
+  addPoliticalBoundaries();
+  
   // Add some example content to visible layers
   addExampleLayerContent();
 };
 
+// Add political boundaries from SVG
+const addPoliticalBoundaries = (): void => {
+  try {
+    // Get the SVG element
+    const svgElement = document.querySelector('svg');
+    if (!svgElement) {
+      console.warn('SVG element not found, cannot add political boundaries');
+      return;
+    }
+    
+    // Find all political boundary paths in the SVG
+    const politicalPaths = svgElement.querySelectorAll('path.political-boundary, path.country-boundary, path.state-boundary');
+    
+    if (politicalPaths.length === 0) {
+      console.warn('No political boundary paths found in SVG');
+      return;
+    }
+    
+    console.log(`Found ${politicalPaths.length} political boundary paths in SVG`);
+    
+    // Process each political boundary path
+    politicalPaths.forEach((path, index) => {
+      try {
+        // Get the path data
+        const pathData = path.getAttribute('d');
+        if (!pathData) return;
+        
+        // Create a Leaflet SVG path
+        const svgPath = L.svg({
+          className: 'political-boundary'
+        });
+        
+        // Add the path to the SVG layer
+        svgPath.addTo(layers.political);
+        
+        // Create a path element
+        const pathElement = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        pathElement.setAttribute('d', pathData);
+        pathElement.setAttribute('fill', 'none');
+        pathElement.setAttribute('stroke', '#800080');
+        pathElement.setAttribute('stroke-width', '2');
+        
+        // Add the path element to the SVG layer
+        svgPath.getElement().appendChild(pathElement);
+        
+        // Add hover effect
+        pathElement.addEventListener('mouseover', () => {
+          pathElement.setAttribute('stroke', '#FF00FF');
+          pathElement.setAttribute('stroke-width', '3');
+        });
+        
+        pathElement.addEventListener('mouseout', () => {
+          pathElement.setAttribute('stroke', '#800080');
+          pathElement.setAttribute('stroke-width', '2');
+        });
+        
+        // Add click event to show country name
+        pathElement.addEventListener('click', (event) => {
+          const countryName = path.getAttribute('data-name') || `Country ${index + 1}`;
+          L.popup()
+            .setLatLng([event.clientY, event.clientX])
+            .setContent(`<strong>${countryName}</strong>`)
+            .openOn(window.map);
+        });
+      } catch (error) {
+        console.error(`Error processing political boundary ${index}:`, error);
+      }
+    });
+  } catch (error) {
+    console.error('Error adding political boundaries:', error);
+  }
+};
+
 // Add example content to layers for testing
 const addExampleLayerContent = (): void => {
-  // Add a political boundary example
-  const politicalBoundary = L.polygon([
-    [1500, 2000],
-    [2500, 2200],
-    [2800, 3000],
-    [2000, 3500],
-    [1500, 3000]
-  ], {
-    color: '#800080',
-    weight: 2,
-    fillColor: '#8000FF',
-    fillOpacity: 0.1
-  }).addTo(layers.political);
+  // Add a political boundary example if no SVG paths were found
+  if (layers.political.getLayers().length === 0) {
+    const politicalBoundary = L.polygon([
+      [1500, 2000],
+      [2500, 2200],
+      [2800, 3000],
+      [2000, 3500],
+      [1500, 3000]
+    ], {
+      color: '#800080',
+      weight: 2,
+      fillColor: '#8000FF',
+      fillOpacity: 0.1
+    }).addTo(layers.political);
+  }
   
   // Add country label example
   const countryLabel = L.marker([2200, 2700], {
@@ -198,86 +251,181 @@ const addExampleLayerContent = (): void => {
   
   // Add scale control to scale layer
   const scaleControl = L.control.scale({
-    position: 'bottomleft',
     imperial: true,
-    metric: true
-  }).addTo(window.map);
+    metric: true,
+    position: 'bottomleft'
+  });
+  
+  scaleControl.addTo(window.map);
   
   // Add compass to compass layer
-  const compassControl = L.control({
-    position: 'topright'
-  } as L.ControlOptions);
+  const compass = L.control({
+    position: 'bottomright'
+  });
   
-  compassControl.onAdd = function(map: L.Map) {
-    const div = L.DomUtil.create('div', 'leaflet-control');
-    div.innerHTML = `
-      <div style="
-        width: 40px;
-        height: 40px;
-        background-color: rgba(255, 255, 255, 0.8);
-        border-radius: 50%;
-        border: 2px solid #666;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        font-size: 20px;
-      ">N</div>
-    `;
+  compass.onAdd = function() {
+    const div = L.DomUtil.create('div', 'leaflet-control-compass');
+    div.innerHTML = 'N';
     return div;
   };
   
-  compassControl.addTo(window.map);
+  compass.addTo(window.map);
 };
 
-// Attach event listeners to layer checkboxes
 const attachLayerEventListeners = (): void => {
-  // For each layer type, attach an event listener to its checkbox
-  Object.keys(window.layerVisibility).forEach(layerId => {
-    const checkbox = document.getElementById(`layer-${layerId}`) as HTMLInputElement;
-    if (checkbox) {
-      checkbox.addEventListener('change', function() {
-        window.layerVisibility[layerId as keyof LayerVisibility] = this.checked;
-        window.updateLayerVisibility();
-        
-        // Special handling for grid layer
-        if (layerId === 'grid' && this.checked && typeof window.drawGrid === 'function') {
-          window.drawGrid();
-        }
-      });
-    }
-  });
-};
-
-// Update layers based on visibility state
-window.updateLayerVisibility = (): void => {
-  console.log('LayerManager: Updating layer visibility');
-  
-  // Update actual map layers based on visibility state
-  Object.entries(window.layerVisibility).forEach(([layerId, isVisible]) => {
-    // Update checkbox state
-    const layerElement = document.getElementById(`layer-${layerId}`) as HTMLInputElement;
-    if (layerElement) {
-      layerElement.checked = isVisible;
-    }
-    
-    // Update map layer visibility
-    const layer = layers[layerId];
-    if (layer) {
-      if (isVisible) {
-        if (!window.map.hasLayer(layer)) {
-          window.map.addLayer(layer);
-        }
+  // Political boundaries toggle
+  const politicalToggle = document.getElementById('layer-political') as HTMLInputElement;
+  if (politicalToggle) {
+    politicalToggle.addEventListener('change', () => {
+      if (politicalToggle.checked) {
+        layers.political.addTo(window.map);
       } else {
-        if (window.map.hasLayer(layer)) {
-          window.map.removeLayer(layer);
-        }
+        layers.political.remove();
       }
-    }
-  });
+      console.log('LayerManager: Updating layer visibility');
+    });
+  }
   
-  // Special handling for coordinate grid
-  if (window.layerVisibility.grid && typeof window.drawGrid === 'function') {
-    window.drawGrid();
+  // Climate zones toggle
+  const climateToggle = document.getElementById('layer-climate') as HTMLInputElement;
+  if (climateToggle) {
+    climateToggle.addEventListener('change', () => {
+      if (climateToggle.checked) {
+        layers.climate.addTo(window.map);
+      } else {
+        layers.climate.remove();
+      }
+      console.log('LayerManager: Updating layer visibility');
+    });
+  }
+  
+  // Lakes toggle
+  const lakesToggle = document.getElementById('layer-lakes') as HTMLInputElement;
+  if (lakesToggle) {
+    lakesToggle.addEventListener('change', () => {
+      if (lakesToggle.checked) {
+        layers.lakes.addTo(window.map);
+      } else {
+        layers.lakes.remove();
+      }
+      console.log('LayerManager: Updating layer visibility');
+    });
+  }
+  
+  // Rivers toggle
+  const riversToggle = document.getElementById('layer-rivers') as HTMLInputElement;
+  if (riversToggle) {
+    riversToggle.addEventListener('change', () => {
+      if (riversToggle.checked) {
+        layers.rivers.addTo(window.map);
+      } else {
+        layers.rivers.remove();
+      }
+      console.log('LayerManager: Updating layer visibility');
+    });
+  }
+  
+  // Mountains toggle
+  const mountainsToggle = document.getElementById('layer-mountains') as HTMLInputElement;
+  if (mountainsToggle) {
+    mountainsToggle.addEventListener('change', () => {
+      if (mountainsToggle.checked) {
+        layers.mountains.addTo(window.map);
+      } else {
+        layers.mountains.remove();
+      }
+      console.log('LayerManager: Updating layer visibility');
+    });
+  }
+  
+  // Cities toggle
+  const citiesToggle = document.getElementById('layer-cities') as HTMLInputElement;
+  if (citiesToggle) {
+    citiesToggle.addEventListener('change', () => {
+      if (citiesToggle.checked) {
+        layers.cities.addTo(window.map);
+      } else {
+        layers.cities.remove();
+      }
+      console.log('LayerManager: Updating layer visibility');
+    });
+  }
+  
+  // Countries toggle
+  const countriesToggle = document.getElementById('layer-countries') as HTMLInputElement;
+  if (countriesToggle) {
+    countriesToggle.addEventListener('change', () => {
+      if (countriesToggle.checked) {
+        layers.countries.addTo(window.map);
+      } else {
+        layers.countries.remove();
+      }
+      console.log('LayerManager: Updating layer visibility');
+    });
+  }
+  
+  // States toggle
+  const statesToggle = document.getElementById('layer-states') as HTMLInputElement;
+  if (statesToggle) {
+    statesToggle.addEventListener('change', () => {
+      if (statesToggle.checked) {
+        layers.states.addTo(window.map);
+      } else {
+        layers.states.remove();
+      }
+      console.log('LayerManager: Updating layer visibility');
+    });
+  }
+  
+  // Labels toggle
+  const labelsToggle = document.getElementById('layer-labels') as HTMLInputElement;
+  if (labelsToggle) {
+    labelsToggle.addEventListener('change', () => {
+      if (labelsToggle.checked) {
+        layers.labels.addTo(window.map);
+      } else {
+        layers.labels.remove();
+      }
+      console.log('LayerManager: Updating layer visibility');
+    });
+  }
+  
+  // Grid toggle
+  const gridToggle = document.getElementById('layer-grid') as HTMLInputElement;
+  if (gridToggle) {
+    gridToggle.addEventListener('change', () => {
+      if (gridToggle.checked) {
+        layers.grid.addTo(window.map);
+      } else {
+        layers.grid.remove();
+      }
+      console.log('LayerManager: Updating layer visibility');
+    });
+  }
+  
+  // Scale toggle
+  const scaleToggle = document.getElementById('layer-scale') as HTMLInputElement;
+  if (scaleToggle) {
+    scaleToggle.addEventListener('change', () => {
+      if (scaleToggle.checked) {
+        layers.scale.addTo(window.map);
+      } else {
+        layers.scale.remove();
+      }
+      console.log('LayerManager: Updating layer visibility');
+    });
+  }
+  
+  // Compass toggle
+  const compassToggle = document.getElementById('layer-compass') as HTMLInputElement;
+  if (compassToggle) {
+    compassToggle.addEventListener('change', () => {
+      if (compassToggle.checked) {
+        layers.compass.addTo(window.map);
+      } else {
+        layers.compass.remove();
+      }
+      console.log('LayerManager: Updating layer visibility');
+    });
   }
 };

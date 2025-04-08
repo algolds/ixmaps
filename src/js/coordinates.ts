@@ -920,231 +920,68 @@ function coordSystemCalculateDistance(latlng1: L.LatLng, latlng2: L.LatLng): Dis
 /**
  * Initialize the coordinate system
  */
-// Add this function to src/js/coordinates.ts, replacing the existing initCoordinateSystem function
-
-/**
- * Initialize the coordinate system with improved reliability
- */
 function initCoordinateSystem(): void {
-  console.log('Initializing coordinate system...');
-  
-  // Prevent duplicate initialization
-  if (window.coordSystemInitialized) {
-    console.log('Coordinate system already initialized, skipping...');
+  if (!window.map || !window.mapConfig) {
+    console.error('Map or mapConfig not available');
     return;
   }
-  
-  // Check for required global objects
-  if (!window.map) {
-    console.error('Map not available, cannot initialize coordinate system');
-    setTimeout(initCoordinateSystem, 1000);
-    return;
-  }
-  
-  if (!window.mapConfig) {
-    console.error('Map config not available, cannot initialize coordinate system');
-    setTimeout(initCoordinateSystem, 1000);
-    return;
-  }
-  
-  // Check that required styles are defined
-  if (!window.GRID_STYLE) {
-    console.error('GRID_STYLE not defined, cannot initialize coordinate system');
-    return;
-  }
-  
-  // Mark as initialized
-  window.coordSystemInitialized = true;
-  
-  // Add CSS styles
-  addCoordinateStyles();
-  
-  // Override the distance calculation function with our calibrated version
-  if (window.calculateDistance) {
-    window.originalCalculateDistance = window.calculateDistance;
-    window.calculateDistance = coordSystemCalculateDistance;
-  }
-  
-  // Replace global functions with our versions
+
+  // Add layer groups to map
+  gridLayer.addTo(window.map);
+  primeMeridianLayer.addTo(window.map);
+
+  // Initialize coordinate conversion functions
   window.svgToLatLng = svgToLatLng;
   window.latLngToSvg = latLngToSvg;
   window.svgToCustomLatLng = svgToCustomLatLng;
+
+  // Initialize distance calculation
+  window.originalCalculateDistance = (latlng1: L.LatLng, latlng2: L.LatLng): DistanceResult => {
+    const distance = window.map.distance(latlng1, latlng2);
+    return {
+      miles: distance * 0.000621371, // Convert meters to miles
+      kilometers: distance / 1000,    // Convert meters to kilometers
+      km: distance / 1000             // Alias for kilometers
+    };
+  };
+  window.calculateDistance = coordSystemCalculateDistance;
+
+  // Draw initial grid and prime meridian
   window.drawGrid = drawGrid;
   window.drawPrimeMeridian = drawPrimeMeridian;
-  
-  // Add coordinate controls to the map
-  try {
-    const coordDisplay = new CoordDisplayControl();
-    coordDisplay.addTo(window.map);
+
+  // Add click handler for coordinate display
+  window.map.on('click', addCoordinateMarker);
+
+  // Add cleanup handler
+  window.map.on('unload', () => {
+    // Remove event listeners
+    window.map.off('click', addCoordinateMarker);
     
-    const coordControlPanel = new CoordControlPanel();
-    window.map.addControl(coordControlPanel);
+    // Clear layers
+    gridLayer.clearLayers();
+    primeMeridianLayer.clearLayers();
     
-    const coordToggleControl = new CoordToggleControl();
-    window.map.addControl(coordToggleControl);
-  } catch (e) {
-    console.error('Error adding coordinate controls:', e);
-  }
-  
-  // Add grid layer to map
-  try {
-    gridLayer.addTo(window.map);
-  } catch (e) {
-    console.error('Error adding grid layer:', e);
-  }
-  
-  // Calculate prime meridian position
-  try {
-    primeMeridianSvg = latLngToSvg(primeMeridianRef.lat, primeMeridianRef.lng);
-    console.log('Prime meridian positioned at:', primeMeridianSvg);
-  } catch (e) {
-    console.error('Error calculating prime meridian position:', e);
-    // Set a default position if calculation fails
-    primeMeridianSvg = { x: window.mapConfig.primeMeridianX || 4101, y: 2450 };
-  }
-  
-  // Restrict vertical panning but allow horizontal wrapping
-  try {
-    const southWest = L.latLng(window.mapConfig.svgHeight, -Infinity);
-    const northEast = L.latLng(0, Infinity);
-    window.map.setMaxBounds(L.latLngBounds(southWest, northEast));
-  } catch (e) {
-    console.error('Error setting map bounds:', e);
-  }
-  
-  // Center map at prime meridian
-  try {
-    const centerY = window.mapConfig.svgHeight / 2;
-    window.map.panTo([centerY, primeMeridianSvg.x], {animate: true, duration: 1});
-  } catch (e) {
-    console.error('Error centering map:', e);
-  }
-  
-  // Make horizontal wraparound seamless
-  try {
-    modifyMapWraparound();
-  } catch (e) {
-    console.error('Error modifying map wraparound:', e);
-  }
-  
-  // Draw initial grid
-  try {
-    drawGrid();
-  } catch (e) {
-    console.error('Error drawing grid:', e);
-  }
-  
-  // Set up event handlers
-  
-  // Update coordinate display on mouse move - only show custom coordinates
-  try {
-    window.map.on('mousemove', function(e: L.LeafletMouseEvent) {
-      try {
-        const customCoord = svgToCustomLatLng(e.latlng.lng, e.latlng.lat);
-        
-        const display = document.querySelector('.ixmap-coordinates-display');
-        if (display) {
-          display.innerHTML = `
-            <div>Lat: ${formatCoord(customCoord.lat, 'N', 'S')}</div>
-            <div>Lng: ${formatCoord(customCoord.lng, 'E', 'W')}</div>
-          `;
-        }
-      } catch (err) {
-        console.error('Error updating coordinate display:', err);
-      }
-    });
-  } catch (e) {
-    console.error('Error setting up mousemove handler:', e);
-  }
-  
-  // Add click handler for coordinate markers
-  try {
-    window.map.on('click', addCoordinateMarker);
-  } catch (e) {
-    console.error('Error setting up click handler:', e);
-  }
-  
-  // Update grid on zoom or pan
-  try {
-    window.map.on('zoomend', updateCoordinateDisplays);
-    window.map.on('moveend', updateCoordinateDisplays);
-    window.map.on('move', updateMapWraparound);
-  } catch (e) {
-    console.error('Error setting up map event handlers:', e);
-  }
-  
-  // Update all coordinate displays (grid, meridian)
-  function updateCoordinateDisplays(): void {
-    try {
-      drawGrid();
-      if (document.getElementById('toggle-prime-meridian') && 
-          (document.getElementById('toggle-prime-meridian') as HTMLInputElement).checked) {
-        drawPrimeMeridian();
-      }
-    } catch (e) {
-      console.error('Error updating coordinate displays:', e);
-    }
-  }
-  
-  // Event handlers for control panel checkboxes
-  setTimeout(function() {
-    try {
-      // Toggle coordinate display
-      const displayToggle = document.getElementById('toggle-coords-display') as HTMLInputElement;
-      if (displayToggle) {
-        displayToggle.addEventListener('change', function() {
-          const display = document.querySelector('.ixmap-coordinates-display');
-          if (display) {
-            (display as HTMLElement).style.display = this.checked ? 'block' : 'none';
-          }
-        });
-      }
-      
-      // Toggle grid
-      const gridToggle = document.getElementById('toggle-coords-grid') as HTMLInputElement;
-      if (gridToggle) {
-        gridToggle.addEventListener('change', function() {
-          if (this.checked) {
-            window.map.addLayer(gridLayer);
-            drawGrid();
-          } else {
-            window.map.removeLayer(gridLayer);
-          }
-        });
-      }
-      
-      // Toggle labels
-      const labelsToggle = document.getElementById('toggle-coords-labels') as HTMLInputElement;
-      if (labelsToggle) {
-        labelsToggle.addEventListener('change', function() {
-          drawGrid();
-        });
-      }
-      
-      // Toggle prime meridian
-      const meridianToggle = document.getElementById('toggle-prime-meridian') as HTMLInputElement;
-      if (meridianToggle) {
-        meridianToggle.addEventListener('change', function() {
-          if (this.checked) {
-            window.map.addLayer(primeMeridianLayer);
-            drawPrimeMeridian();
-          } else {
-            window.map.removeLayer(primeMeridianLayer);
-          }
-        });
-      }
-    } catch (e) {
-      console.error('Error setting up control panel event handlers:', e);
-    }
-  }, 500);
-  
-  console.log('Coordinate system initialized successfully');
-  
-  // Show success notification
-  if (typeof window.showToast === 'function') {
-    window.showToast('Coordinate system initialized with calibrated distance measurements', 'success', 3000);
-  }
+    // Remove layers from map
+    window.map.removeLayer(gridLayer);
+    window.map.removeLayer(primeMeridianLayer);
+    
+    console.log('Coordinate system cleaned up');
+  });
+
+  // Initial draw
+  drawGrid();
+  drawPrimeMeridian();
+
+  // Mark as initialized
+  window.coordSystemInitialized = true;
+  console.log('Coordinate system initialized');
 }
 
-// Make initialization function available globally
-window.initializeCoordinateSystem = initCoordinateSystem; 
+// Export the initialization function
+export function initializeCoordinateSystem(): void {
+  initCoordinateSystem();
+}
+
+// Make it available globally
+window.initializeCoordinateSystem = initializeCoordinateSystem; 

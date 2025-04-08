@@ -34,14 +34,52 @@ export const loadSVGDimensions = async (svgPath: string): Promise<SVGDimensions>
     
     const svgElement = svgDoc.documentElement;
     
-    // Extract dimensions from SVG
-    const width = svgElement.hasAttribute('width') 
-      ? parseFloat(svgElement.getAttribute('width') || '0') 
-      : parseFloat(svgElement.getAttribute('viewBox')?.split(' ')[2] || '0');
-      
-    const height = svgElement.hasAttribute('height') 
-      ? parseFloat(svgElement.getAttribute('height') || '0') 
-      : parseFloat(svgElement.getAttribute('viewBox')?.split(' ')[3] || '0');
+    // Try multiple methods to extract dimensions
+    let width = 0;
+    let height = 0;
+    
+    // Method 1: Direct width/height attributes
+    if (svgElement.hasAttribute('width') && svgElement.hasAttribute('height')) {
+      width = parseFloat(svgElement.getAttribute('width') || '0');
+      height = parseFloat(svgElement.getAttribute('height') || '0');
+    }
+    
+    // Method 2: ViewBox attribute
+    if ((width <= 0 || height <= 0) && svgElement.hasAttribute('viewBox')) {
+      const viewBox = svgElement.getAttribute('viewBox')?.split(' ');
+      if (viewBox && viewBox.length >= 4) {
+        width = parseFloat(viewBox[2]);
+        height = parseFloat(viewBox[3]);
+      }
+    }
+    
+    // Method 3: Look for metadata or other elements with dimensions
+    if (width <= 0 || height <= 0) {
+      // Try to find a rect element that covers the entire SVG
+      const rects = svgDoc.querySelectorAll('rect');
+      for (let i = 0; i < rects.length; i++) {
+        const rect = rects[i];
+        const rectWidth = parseFloat(rect.getAttribute('width') || '0');
+        const rectHeight = parseFloat(rect.getAttribute('height') || '0');
+        
+        // If this rect is large enough, use its dimensions
+        if (rectWidth > 100 && rectHeight > 100) {
+          width = rectWidth;
+          height = rectHeight;
+          break;
+        }
+      }
+    }
+    
+    // Method 4: Look for a specific element with known dimensions
+    if (width <= 0 || height <= 0) {
+      // Try to find an element with a specific ID or class that might indicate the map size
+      const mapElement = svgDoc.querySelector('#map-container, .map-container, #world-map, .world-map');
+      if (mapElement) {
+        width = parseFloat(mapElement.getAttribute('width') || '0');
+        height = parseFloat(mapElement.getAttribute('height') || '0');
+      }
+    }
     
     console.log(`SVGLoader: Successfully extracted dimensions: ${width}x${height}`);
     
