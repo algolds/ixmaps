@@ -1,11 +1,10 @@
 /**
- * IxMaps DEVELOPMENT - v3.4
- * Performance Optimized Version with Linear Distance
+ * IxMaps DEVELOPMENT - v3.5
+ * Master SVG Layer Implementation
  * @namespace IxMaps
  */
 
 // Constants for scale calculations 
-// IMPORTANT: These constants represent linear distances, not square miles
 const MILES_PER_PIXEL = 3.2; // Base scale: 1px = 3.2 mi (linear distance)
 const KM_PER_PIXEL = 5.15; // Conversion factor from miles to kilometers
 
@@ -377,9 +376,7 @@ function calculatePixelDistance(latlng1, latlng2) {
 function initMap() {
   // Map configuration with raw map dimensions
   const config = {
-    mainMapPath: 'map.svg',
-    climateMapPath: 'climate.svg',
-    bordersMapPath: 'political.svg', // Using political.svg as in paste.txt
+    masterMapPath: 'master-map.svg', // Single master SVG map with all layers
     svgWidth: 8200,  // Updated to match SVG dimensions
     svgHeight: 4900, // Updated to match SVG dimensions
     initialZoom: 2,  
@@ -393,7 +390,9 @@ function initMap() {
     equatorY: 2450,
     primeMeridianX: 4101,
     milesPerPixel: MILES_PER_PIXEL, // Using linear distance scale
-    kmPerPixel: KM_PER_PIXEL // Converted value
+    kmPerPixel: KM_PER_PIXEL, // Converted value
+    labelFontSize: 12, // Default font size for country labels
+    labelClassName: 'country-label' // CSS class for country labels
   };
 
   // Create the Leaflet map with optimized options - removed throttling
@@ -419,7 +418,7 @@ function initMap() {
   
   // Add attribution control
   L.control.attribution({
-    prefix: 'IxMaps™ v3.4 Beta'
+    prefix: 'IxMaps™ v3.5 Beta'
   }).addTo(map);
   
   // Implement key coordinate functions
@@ -794,169 +793,661 @@ function initMap() {
   
   customScale.addTo(map);
 
-  // Layers for map and overlays
-  let mainLayer, climateLayer, bordersLayer;
-  let leftMainLayer, rightMainLayer;
-  let leftClimateLayer, rightClimateLayer;
-  let leftBordersLayer, rightBordersLayer;
+  // Layers for map and SVG overlays
+  let masterLayer, leftMasterLayer, rightMasterLayer;
+  
+  // Map layer visibility settings
+  const layerVisibility = {
+    political: true,
+    climate: false,
+    lakes: true,
+    rivers: true,
+    'altitude-1': false,
+    'altitude-2': false,
+    'altitude-3': false,
+    'altitude-4': false,
+    'altitude-5': false,
+    'altitude-6': false,
+    'altitude-7': false,
+    'altitude-8': false,
+    coastlines: true,
+    icecaps: true,
+    labels: true
+  };
+  
+  // Will hold the country label layer group
+  let countryLabelsLayer = null;
 
-  // Load the SVGs with optimized loading
-  Promise.all([
-    loadSVGDimensions(config.mainMapPath),
-    loadSVGDimensions(config.climateMapPath),
-    loadSVGDimensions(config.bordersMapPath)
-  ])
-  .then(([mainDimensions, climateDimensions, bordersDimensions]) => {
-    // Use dimensions from main map
-    config.svgWidth = mainDimensions.width;
-    config.svgHeight = mainDimensions.height;
-    
-    // Calculate bounds - but don't fitBounds to keep our initial center
-    const bounds = [
-      [0, 0],
-      [config.svgHeight, config.svgWidth]
-    ];
-
-    // Create main map layer
-    mainLayer = L.imageOverlay(config.mainMapPath, bounds, {
-      // Add caching options for better performance
-      keepBuffer: 4, // Larger tile buffer to prevent flashing
-      opacity: 1,
-      interactive: false // Not interactive for better performance
-    }).addTo(map);
-    
-    // Create climate overlay layer (not added to map by default)
-    climateLayer = L.imageOverlay(config.climateMapPath, bounds, {
-      className: 'map-overlay',
-      interactive: false
-    });
-    
-    // Create borders overlay layer with better opacity settings
-    // Changed opacity to 0.7 for better visibility of the underlying map
-    bordersLayer = L.imageOverlay(config.bordersMapPath, bounds, {
-      className: 'map-overlay',
-      interactive: false,
-      opacity: 0.7 // Adjusted opacity for better visualization
-    }).addTo(map); // Added to map by default
-
-    // Add wrapped layers for continuity when panning
-    // Left copies
-    leftMainLayer = L.imageOverlay(config.mainMapPath, [
-      [0, -config.svgWidth],
-      [config.svgHeight, 0]
-    ], {
-      interactive: false
-    }).addTo(map);
-    
-    leftClimateLayer = L.imageOverlay(config.climateMapPath, [
-      [0, -config.svgWidth],
-      [config.svgHeight, 0]
-    ], {
-      className: 'map-overlay',
-      interactive: false
-    });
-    
-    leftBordersLayer = L.imageOverlay(config.bordersMapPath, [
-      [0, -config.svgWidth],
-      [config.svgHeight, 0]
-    ], {
-      className: 'map-overlay',
-      interactive: false,
-      opacity: 0.7 // Match the opacity of main borders layer
-    }).addTo(map); // Added to map by default
-    
-    // Right copies
-    rightMainLayer = L.imageOverlay(config.mainMapPath, [
-      [0, config.svgWidth],
-      [config.svgHeight, config.svgWidth * 2]
-    ], {
-      interactive: false
-    }).addTo(map);
-    
-    rightClimateLayer = L.imageOverlay(config.climateMapPath, [
-      [0, config.svgWidth],
-      [config.svgHeight, config.svgWidth * 2]
-    ], {
-      className: 'map-overlay',
-      interactive: false
-    });
-    
-    rightBordersLayer = L.imageOverlay(config.bordersMapPath, [
-      [0, config.svgWidth],
-      [config.svgHeight, config.svgWidth * 2]
-    ], {
-      className: 'map-overlay',
-      interactive: false,
-      opacity: 0.7 // Match the opacity of main borders layer
-    }).addTo(map); // Added to map by default
-
-    // Center the map
-    map.fitBounds(bounds);
-    
-    // Add layer control
-    const baseLayers = {
-      "Topology Map": mainLayer
-    };
-    
-    const overlays = {
-      "Climate Zones": climateLayer,
-      "Political Borders": bordersLayer // Add the borders layer to the control
-    };
-    
-    L.control.layers(null, overlays, {
-      position: 'topright'
-    }).addTo(map);
-
-    // Hide loading indicator
-    document.getElementById('loading-indicator').style.display = 'none';
-
-    // Implement wrapping behavior without throttling
-    map.on('moveend', function() {
-      const center = map.getCenter();
+  // Load the master SVG
+  loadSVGDimensions(config.masterMapPath)
+    .then((dimensions) => {
+      // Use dimensions from master map
+      config.svgWidth = dimensions.width;
+      config.svgHeight = dimensions.height;
       
-      // If panned beyond bounds, wrap around immediately
-      if (center.lng < 0) {
-        map.panTo([center.lat, center.lng + config.svgWidth], {animate: false});
-      } else if (center.lng > config.svgWidth) {
-        map.panTo([center.lat, center.lng - config.svgWidth], {animate: false});
+      console.log(`Loaded SVG with dimensions: ${config.svgWidth} x ${config.svgHeight}`);
+      
+      // Calculate bounds - but don't fitBounds to keep our initial center
+      const bounds = [
+        [0, 0],
+        [config.svgHeight, config.svgWidth]
+      ];
+
+      // Create master map layer
+      masterLayer = L.imageOverlay(config.masterMapPath, bounds, {
+        // Add caching options for better performance
+        keepBuffer: 4, // Larger tile buffer to prevent flashing
+        opacity: 1,
+        interactive: false // Not interactive for better performance
+      }).addTo(map);
+      
+      // Debug info about the SVG layers
+      fetch(config.masterMapPath)
+        .then(response => response.text())
+        .then(svgText => {
+          const parser = new DOMParser();
+          const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
+          
+          // Get all Inkscape layers
+          const layers = svgDoc.querySelectorAll('[inkscape\\:groupmode="layer"]');
+          console.log(`Found ${layers.length} Inkscape layers:`);
+          
+          layers.forEach(layer => {
+            const id = layer.getAttribute('id');
+            const label = layer.getAttribute('inkscape:label');
+            console.log(`- Layer: id="${id}", inkscape:label="${label}"`);
+          });
+        })
+        .catch(error => {
+          console.error('Error analyzing SVG layers:', error);
+        });
+      
+      // Add wrapped layers for continuity when panning
+      // Left copies
+      leftMasterLayer = L.imageOverlay(config.masterMapPath, [
+        [0, -config.svgWidth],
+        [config.svgHeight, 0]
+      ], {
+        interactive: false
+      }).addTo(map);
+      
+      // Right copies
+      rightMasterLayer = L.imageOverlay(config.masterMapPath, [
+        [0, config.svgWidth],
+        [config.svgHeight, config.svgWidth * 2]
+      ], {
+        interactive: false
+      }).addTo(map);
+
+      // Center the map
+      map.fitBounds(bounds);
+      
+      // Create layer control with SVG layer management
+      createLayerControl();
+      
+      // Load country labels if enabled by default
+      if (layerVisibility.labels) {
+        setTimeout(() => {
+          showCountryLabels();
+        }, 1000); // Slight delay to ensure map is fully loaded
+      }
+
+      // Hide loading indicator
+      document.getElementById('loading-indicator').style.display = 'none';
+
+      // Implement wrapping behavior without throttling
+      map.on('moveend', function() {
+        const center = map.getCenter();
+        
+        // If panned beyond bounds, wrap around immediately
+        if (center.lng < 0) {
+          map.panTo([center.lat, center.lng + config.svgWidth], {animate: false});
+        } else if (center.lng > config.svgWidth) {
+          map.panTo([center.lat, center.lng - config.svgWidth], {animate: false});
+        }
+      });
+      
+      // Show success message
+      showToast('Map loaded successfully', 'success', 3000);
+    })
+    .catch(error => {
+      console.error("Error loading SVG map:", error);
+      document.getElementById('loading-indicator').textContent = 
+        'Error loading maps. Please try refreshing the page.';
+      
+      // Show error toast
+      showToast('Failed to load map resources. Please try refreshing the page.', 'error', 0);
+    });
+
+  /**
+   * Creates and adds layer control panel for the master SVG layers
+   */
+  function createLayerControl() {
+    // Create the control panel container
+    const controlPanel = L.control({
+      position: 'topright'
+    });
+    
+    controlPanel.onAdd = function(map) {
+      const container = L.DomUtil.create('div', 'control-panel');
+      container.id = 'layer-control-panel';
+      
+      // Create main control panel content
+      const panelContent = document.createElement('div');
+      panelContent.className = 'control-panel-content';
+      
+      // Create layer toggles
+      panelContent.innerHTML = `
+        <h3>Map Layers <span id="close-panel" style="cursor:pointer;">×</span></h3>
+        
+        <div class="layer-group">
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-political" ${layerVisibility.political ? 'checked' : ''}>
+              Political Borders
+            </label>
+          </div>
+          
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-climate" ${layerVisibility.climate ? 'checked' : ''}>
+              Climate Zones
+            </label>
+          </div>
+        </div>
+        
+        <div class="layer-group">
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-lakes" ${layerVisibility.lakes ? 'checked' : ''}>
+              Lakes
+            </label>
+          </div>
+          
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-rivers" ${layerVisibility.rivers ? 'checked' : ''}>
+              Rivers
+            </label>
+          </div>
+        </div>
+        
+        <div class="layer-group">
+          <h4>Altitude Layers</h4>
+          
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-altitude-1" ${layerVisibility['altitude-1'] ? 'checked' : ''}>
+              Altitude 1 (Lowest)
+            </label>
+          </div>
+          
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-altitude-2" ${layerVisibility['altitude-2'] ? 'checked' : ''}>
+              Altitude 2
+            </label>
+          </div>
+          
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-altitude-3" ${layerVisibility['altitude-3'] ? 'checked' : ''}>
+              Altitude 3
+            </label>
+          </div>
+          
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-altitude-4" ${layerVisibility['altitude-4'] ? 'checked' : ''}>
+              Altitude 4
+            </label>
+          </div>
+          
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-altitude-5" ${layerVisibility['altitude-5'] ? 'checked' : ''}>
+              Altitude 5
+            </label>
+          </div>
+          
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-altitude-6" ${layerVisibility['altitude-6'] ? 'checked' : ''}>
+              Altitude 6
+            </label>
+          </div>
+          
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-altitude-7" ${layerVisibility['altitude-7'] ? 'checked' : ''}>
+              Altitude 7
+            </label>
+          </div>
+          
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-altitude-8" ${layerVisibility['altitude-8'] ? 'checked' : ''}>
+              Altitude 8 (Highest)
+            </label>
+          </div>
+          
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-coastlines" ${layerVisibility.coastlines ? 'checked' : ''}>
+              Coastlines
+            </label>
+          </div>
+        </div>
+        
+        <div class="layer-group">
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-icecaps" ${layerVisibility.icecaps ? 'checked' : ''}>
+              Ice Caps
+            </label>
+          </div>
+        </div>
+        
+        <div class="layer-group">
+          <div class="layer-toggle">
+            <label>
+              <input type="checkbox" id="layer-labels" ${layerVisibility.labels ? 'checked' : ''}>
+              Country Labels
+            </label>
+          </div>
+        </div>
+      `;
+      
+      // Add panel content to container
+      container.appendChild(panelContent);
+      
+      // Create toggle button for control panel
+      const toggleBtn = L.DomUtil.create('a', 'leaflet-control leaflet-bar control-toggle-button');
+      toggleBtn.id = 'control-toggle';
+      toggleBtn.innerHTML = '⚙️';
+      toggleBtn.href = '#';
+      toggleBtn.title = 'Toggle Map Layers';
+      toggleBtn.setAttribute('role', 'button');
+      toggleBtn.setAttribute('aria-label', 'Toggle layer controls');
+      
+      // Make it into a proper Leaflet control
+      const toggleControl = L.control({position: 'topright'});
+      toggleControl.onAdd = function() {
+        return toggleBtn;
+      };
+      toggleControl.addTo(map);
+      
+      // Prevent events from propagating to map (prevents click from zooming)
+      L.DomEvent.disableClickPropagation(container);
+      L.DomEvent.disableScrollPropagation(container);
+      
+      // Add event listeners after DOM is ready
+      setTimeout(() => {
+        // Toggle button event
+        document.getElementById('control-toggle').addEventListener('click', function(e) {
+          e.preventDefault();
+          const panel = document.getElementById('layer-control-panel');
+          if (panel) {
+            panel.classList.toggle('hidden');
+          }
+        });
+        
+        // Close button event
+        document.getElementById('close-panel').addEventListener('click', function() {
+          const panel = document.getElementById('layer-control-panel');
+          if (panel) {
+            panel.classList.add('hidden');
+          }
+        });
+        
+        // Add change listeners for all layer checkboxes
+        const layerInputs = document.querySelectorAll('[id^="layer-"]');
+        layerInputs.forEach(input => {
+          input.addEventListener('change', function() {
+            const layerId = this.id.replace('layer-', '');
+            layerVisibility[layerId] = this.checked;
+            updateLayerVisibility();
+            
+            // Special handling for country labels
+            if (layerId === 'labels') {
+              if (this.checked) {
+                showCountryLabels();
+              } else {
+                hideCountryLabels();
+              }
+            }
+          });
+        });
+      }, 100);
+      
+      return container;
+    };
+    
+    controlPanel.addTo(map);
+    
+    // Initially hide the panel
+    setTimeout(() => {
+      const panel = document.getElementById('layer-control-panel');
+      if (panel) {
+        panel.classList.add('hidden');
+      }
+    }, 200);
+  }
+
+  /**
+   * Updates layer visibility within SVG via CSS manipulation
+   * Works by adding/removing a style element with CSS visibility rules
+   * Compatible with Inkscape's layer structure
+   */
+  function updateLayerVisibility() {
+    // Ensure style element exists
+    let styleEl = document.getElementById('ixmap-layer-styles');
+    
+    if (!styleEl) {
+      styleEl = document.createElement('style');
+      styleEl.id = 'ixmap-layer-styles';
+      document.head.appendChild(styleEl);
+    }
+    
+    // Build CSS for SVG layer visibility
+    let css = '';
+    
+    // Define CSS rules for each layer
+    // This targets both Inkscape layer IDs and labels
+    Object.keys(layerVisibility).forEach(layer => {
+      if (!layerVisibility[layer]) {
+        // Hide the layer if visibility is false
+        // Target elements with matching ID or inkscape:label
+        css += `
+          svg #${layer}, 
+          svg [id="${layer}"], 
+          svg [inkscape\\:label="${layer}"],
+          svg .${layer} { 
+            visibility: hidden !important; 
+            display: none !important;
+          }
+        `;
+      } else {
+        // Ensure the layer is visible if visibility is true
+        css += `
+          svg #${layer}, 
+          svg [id="${layer}"], 
+          svg [inkscape\\:label="${layer}"],
+          svg .${layer} { 
+            visibility: visible !important; 
+            display: inline !important;
+          }
+        `;
       }
     });
     
-    // Handle climate layer toggle actions
-    map.on('overlayadd', function(e) {
-      if (e.name === "Climate Zones") {
-        leftClimateLayer.addTo(map);
-        rightClimateLayer.addTo(map);
-      } else if (e.name === "Political Borders") {
-        leftBordersLayer.addTo(map);
-        rightBordersLayer.addTo(map);
+    // Apply CSS rules
+    styleEl.textContent = css;
+    
+    // Show notification of layer change
+    showToast('Map layers updated', 'info', 1500);
+  }
+
+  /**
+   * Extract country labels from SVG and create Leaflet labels
+   * This function is compatible with Inkscape SVG structure
+   */
+  function extractSvgCountryLabels() {
+    return new Promise((resolve, reject) => {
+      try {
+        // Fetch the SVG to extract country names and positions
+        fetch(config.masterMapPath)
+          .then(response => response.text())
+          .then(svgText => {
+            const parser = new DOMParser();
+            const svgDoc = parser.parseFromString(svgText, "image/svg+xml");
+            
+            // Find the political layer - try different Inkscape selectors
+            const politicalLayer = 
+              svgDoc.querySelector('#political') || 
+              svgDoc.querySelector('[inkscape\\:label="political"]') ||
+              svgDoc.querySelector('[inkscape\\:groupmode="layer"][id="political"]') ||
+              svgDoc.querySelector('g[id="political"]');
+            
+            if (!politicalLayer) {
+              console.error("Could not find political layer in SVG");
+              reject(new Error("Political layer not found"));
+              return;
+            }
+            
+            console.log("Found political layer:", politicalLayer);
+            
+            // Find all country elements in the political layer
+            // In Inkscape, these would be direct children with IDs
+            const countryElements = politicalLayer.querySelectorAll('*');
+            console.log(`Found ${countryElements.length} elements in political layer`);
+            
+            const labels = [];
+            
+            countryElements.forEach(element => {
+              // Skip group elements and elements without IDs
+              if (element.tagName.toLowerCase() === 'g' || !element.hasAttribute('id')) {
+                return;
+              }
+              
+              // Get the ID which is the country name
+              const id = element.getAttribute('id');
+              
+              // Skip elements with generic IDs
+              if (!id || id === 'political' || id.startsWith('path') || id.startsWith('rect')) {
+                return;
+              }
+              
+              // Try to get inkscape:label attribute first, then fall back to ID
+              const name = element.getAttribute('inkscape:label') || id;
+              
+              // Calculate position (centroid of the path/shape)
+              let centroid = calculatePathCentroid(element);
+              
+              // If we couldn't calculate a centroid, try to get bounding box center
+              if (!centroid) {
+                centroid = calculateBoundingBoxCenter(element);
+              }
+              
+              // Skip if we couldn't determine a position
+              if (!centroid) {
+                console.warn(`Couldn't determine position for country: ${name}`);
+                return;
+              }
+              
+              // Determine if this is a major country, capital, or minor territory
+              let type = 'standard';
+              
+              // Check element attributes and size
+              try {
+                // Simple heuristic: use element size to determine importance
+                if (element.hasAttribute('inkscape:label')) {
+                  const inkscapeLabel = element.getAttribute('inkscape:label').toLowerCase();
+                  if (inkscapeLabel.includes('capital') || inkscapeLabel.includes('capitol')) {
+                    type = 'capital';
+                  } else if (inkscapeLabel.includes('major')) {
+                    type = 'major';
+                  } else if (inkscapeLabel.includes('minor')) {
+                    type = 'minor';
+                  }
+                } else {
+                  // Use size as a fallback
+                  try {
+                    const bbox = element.getBBox();
+                    const area = bbox.width * bbox.height;
+                    
+                    if (area > 100000) {
+                      type = 'major';
+                    } else if (area < 10000) {
+                      type = 'minor';
+                    }
+                  } catch (e) {
+                    console.warn(`Error getting bounding box for ${name}:`, e);
+                  }
+                }
+              } catch (e) {
+                console.warn(`Error determining type for ${name}:`, e);
+              }
+              
+              // Format the name for display
+              const displayName = name
+                .replace(/_/g, ' ')
+                .replace(/([a-z])([A-Z])/g, '$1 $2')
+                .replace(/^[a-z]/, match => match.toUpperCase());
+              
+              // Add label to array
+              labels.push({
+                x: centroid.x,
+                y: centroid.y,
+                name: displayName,
+                originalId: id,
+                class: type
+              });
+              
+              console.log(`Added country label: ${displayName} (${type}) at ${centroid.x},${centroid.y}`);
+            });
+            
+            console.log(`Extracted ${labels.length} country labels from SVG`);
+            resolve(labels);
+          })
+          .catch(error => {
+            console.error('Error extracting country labels from SVG:', error);
+            reject(error);
+          });
+      } catch (error) {
+        console.error('Error in extractSvgCountryLabels:', error);
+        reject(error);
       }
     });
-    
-    map.on('overlayremove', function(e) {
-      if (e.name === "Climate Zones") {
-        map.removeLayer(leftClimateLayer);
-        map.removeLayer(rightClimateLayer);
-      } else if (e.name === "Political Borders") {
-        map.removeLayer(leftBordersLayer);
-        map.removeLayer(rightBordersLayer);
-        // Remove wrapped borders layers as well
-        map.removeLayer(leftBordersLayer);
-        map.removeLayer(rightBordersLayer);
+  }
+  
+  /**
+   * Calculate the centroid (center point) of an SVG path element
+   * @param {SVGElement} element - The SVG element (path, polygon, etc.)
+   * @returns {Object|null} - {x, y} coordinates or null if calculation fails
+   */
+  function calculatePathCentroid(element) {
+    try {
+      // For simple rect elements
+      if (element.tagName.toLowerCase() === 'rect') {
+        const x = parseFloat(element.getAttribute('x') || 0);
+        const y = parseFloat(element.getAttribute('y') || 0);
+        const width = parseFloat(element.getAttribute('width') || 0);
+        const height = parseFloat(element.getAttribute('height') || 0);
+        
+        return {
+          x: x + width / 2,
+          y: y + height / 2
+        };
       }
-    });
+      
+      // For circle elements
+      if (element.tagName.toLowerCase() === 'circle') {
+        const cx = parseFloat(element.getAttribute('cx') || 0);
+        const cy = parseFloat(element.getAttribute('cy') || 0);
+        
+        return { x: cx, y: cy };
+      }
+      
+      // For path or polygon elements, try to get the bounding box center
+      return calculateBoundingBoxCenter(element);
+    } catch (error) {
+      console.warn('Error calculating path centroid:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Calculate the center of an element's bounding box
+   * @param {SVGElement} element - The SVG element
+   * @returns {Object|null} - {x, y} coordinates or null if calculation fails
+   */
+  function calculateBoundingBoxCenter(element) {
+    try {
+      // Use the SVG's getBBox() to get the bounding box
+      const bbox = element.getBBox();
+      
+      return {
+        x: bbox.x + bbox.width / 2,
+        y: bbox.y + bbox.height / 2
+      };
+    } catch (error) {
+      console.warn('Error calculating bounding box center:', error);
+      return null;
+    }
+  }
+  
+  /**
+   * Create and show Leaflet labels for countries
+   */
+  function showCountryLabels() {
+    // If labels are already showing, do nothing
+    if (countryLabelsLayer && map.hasLayer(countryLabelsLayer)) {
+      return;
+    }
     
-    // Show success message
-    showToast('Map loaded successfully', 'success', 3000);
-  })
-  .catch(error => {
-    console.error("Error loading SVG maps:", error);
-    document.getElementById('loading-indicator').textContent = 
-      'Error loading maps. Please try refreshing the page.';
-    
-    // Show error toast
-    showToast('Failed to load map resources. Please try refreshing the page.', 'error', 0);
-  });
+    // If we need to create the labels
+    if (!countryLabelsLayer) {
+      countryLabelsLayer = L.layerGroup();
+      
+      // Extract labels from SVG and create markers
+      extractSvgCountryLabels()
+        .then(labels => {
+          // Create a marker for each label
+          labels.forEach(label => {
+            // Convert SVG coordinates to Leaflet coordinates
+            const position = L.latLng(label.y, label.x);
+            
+            // Create a div icon with the country name
+            const icon = L.divIcon({
+              className: `${config.labelClassName} ${label.class}`,
+              html: `<div style="font-weight:${label.class === 'minor' ? 'normal' : 'bold'};">${label.name}</div>`,
+              iconSize: [120, 20],  // Set a reasonable size that will fit most country names
+              iconAnchor: [60, 10]  // Center the icon on the position
+            });
+            
+            // Create the marker and add it to the layer
+            const marker = L.marker(position, {
+              icon: icon,
+              interactive: true,  // Makes the label clickable
+              keyboard: false,    // Prevents keyboard navigation to the marker
+              zIndexOffset: 1000  // Ensure labels appear above other elements
+            });
+            
+            // Add a tooltip with more information if clicked
+            marker.bindTooltip(label.name, { 
+              direction: 'top',
+              offset: [0, -10]
+            });
+            
+            countryLabelsLayer.addLayer(marker);
+          });
+          
+          // Add the layer to the map
+          countryLabelsLayer.addTo(map);
+          
+          showToast(`Showing ${labels.length} country labels`, 'info', 2000);
+        })
+        .catch(error => {
+          console.error('Failed to show country labels:', error);
+          showToast('Failed to load country labels', 'error', 3000);
+        });
+    } else {
+      // Just add the existing layer to the map
+      countryLabelsLayer.addTo(map);
+      showToast('Showing country labels', 'info', 2000);
+    }
+  }
+  
+  /**
+   * Hide country labels
+   */
+  function hideCountryLabels() {
+    if (countryLabelsLayer && map.hasLayer(countryLabelsLayer)) {
+      map.removeLayer(countryLabelsLayer);
+      showToast('Country labels hidden', 'info', 2000);
+    }
+  }
 
   // Make functions available globally through the IxMaps namespace
   window.IxMaps.Main = {
@@ -965,6 +1456,10 @@ function initMap() {
     calculateScaleFactor: calculateScaleFactor,
     calculateDistance: calculateDistance,
     calculatePixelDistance: calculatePixelDistance,
+    updateLayerVisibility: updateLayerVisibility,
+    getLayerVisibility: () => Object.assign({}, layerVisibility),
+    showCountryLabels: showCountryLabels,
+    hideCountryLabels: hideCountryLabels,
     MILES_PER_PIXEL: MILES_PER_PIXEL,
     KM_PER_PIXEL: KM_PER_PIXEL
   };

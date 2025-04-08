@@ -3,19 +3,150 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IxMaps™ - DEVELOPMENT VERSION</title>
+  <title>IxMaps™ - v4.0 DEVELOPMENT</title>
   
   <!-- Preload critical resources -->
   <link rel="preload" href="js/main.js" as="script">
   <link rel="preload" href="js/coordinates.js" as="script">
   <link rel="preload" href="css/main.css" as="style">
+  <link rel="preload" href="css/ixmap-styles.css" as="style">
+  <link rel="preload" href="css/ixmap-editor.css" as="style">
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" as="style">
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" as="script">
+  <link rel="preload" href="master-map.svg" as="image">
   
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
   <!-- Custom CSS -->
   <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/ixmap-styles.css" />
+  <link rel="stylesheet" href="css/ixmap-editor.css" />
+  
+  <style>
+    /* Additional styles for layer control panel */
+    .control-panel {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      max-width: 250px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    .control-panel.hidden {
+      transform: translateX(calc(100% + 10px));
+      opacity: 0;
+    }
+    
+    .control-panel h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .control-panel h4 {
+      margin: 5px 0;
+      font-size: 14px;
+    }
+    
+    .control-toggle-button {
+      text-decoration: none !important;
+      font-size: 18px !important;
+      width: 30px !important;
+      height: 30px !important;
+      line-height: 30px !important;
+      text-align: center;
+      font-weight: bold;
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .layer-toggle {
+      margin-bottom: 8px;
+    }
+    
+    .layer-group {
+      margin-bottom: 15px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .layer-group:last-child {
+      border-bottom: none;
+    }
+    
+    /* Country Label Styles */
+    .country-label {
+      background-color: transparent !important;
+      border: none !important;
+      font-family: Arial, sans-serif;
+      font-size: 12px;
+      font-weight: bold;
+      color: #333;
+      text-shadow: 
+        -1px -1px 0 #fff,
+        1px -1px 0 #fff,
+        -1px 1px 0 #fff,
+        1px 1px 0 #fff,
+        0 0 5px rgba(255, 255, 255, 0.7);
+      pointer-events: auto;
+      cursor: pointer;
+      z-index: 650;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+      text-align: center;
+    }
+    
+    .country-label:hover {
+      transform: scale(1.1);
+      color: #0078A8;
+      z-index: 700;
+    }
+    
+    .country-label.capital {
+      color: #B22222;
+      font-weight: bold;
+      font-size: 13px;
+    }
+    
+    .country-label.major {
+      font-size: 14px;
+    }
+    
+    .country-label.minor {
+      font-size: 11px;
+      font-weight: normal;
+      opacity: 0.9;
+    }
+    
+    /* Adjust label size based on zoom level */
+    .leaflet-zoom-animated .country-label {
+      transition: font-size 0.3s ease;
+    }
+    
+    /* Legend styles */
+    .map-legend {
+      position: absolute;
+      bottom: 30px;
+      left: 10px;
+      z-index: 1000;
+      background: white;
+      padding: 10px;
+      border-radius: 5px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      max-width: 200px;
+      max-height: 40vh;
+      overflow-y: auto;
+    }
+  </style>
 </head>
 <body>
   <div id="map"></div>
@@ -29,5 +160,130 @@
   
   <!-- Load coordinate system and scale immediately after main script -->
   <script src="js/coordinates.js"></script>
+  
+  <!-- Add legend -->
+  <div id="map-legend" class="map-legend">
+    <div class="legend-title">
+      Map Legend <span class="legend-toggle" id="legend-toggle">−</span>
+    </div>
+    <div class="legend-content" id="legend-content">
+      <!-- Political Borders -->
+      <div class="legend-section">
+        <div class="legend-section-title">Political Borders</div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #FF8080; opacity: 0.7;"></div>
+          <span>National Borders</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #FFB280; opacity: 0.5;"></div>
+          <span>Provincial Borders</span>
+        </div>
+      </div>
+      
+      <!-- Climate Zones -->
+      <div class="legend-section">
+        <div class="legend-section-title">Climate Zones</div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #E0FFE0;"></div>
+          <span>Temperate</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #FFFFA0;"></div>
+          <span>Desert</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #A0FFA0;"></div>
+          <span>Tropical</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #E0E0FF;"></div>
+          <span>Polar</span>
+        </div>
+      </div>
+      
+      <!-- Altitude Layers -->
+      <div class="legend-section">
+        <div class="legend-section-title">Altitude Layers</div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #AACC99;"></div>
+          <span>Level 1 (Lowest)</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #99BB88;"></div>
+          <span>Level 2</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #88AA77;"></div>
+          <span>Level 3</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #779966;"></div>
+          <span>Level 4</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #668855;"></div>
+          <span>Level 5</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #557744;"></div>
+          <span>Level 6</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #446633;"></div>
+          <span>Level 7</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #335522;"></div>
+          <span>Level 8 (Highest)</span>
+        </div>
+      </div>
+      
+      <!-- Water Bodies -->
+      <div class="legend-section">
+        <div class="legend-section-title">Water Bodies</div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #ADD8E6;"></div>
+          <span>Lakes</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #80B0E0;"></div>
+          <span>Rivers</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #D5FFFF;"></div>
+          <span>Ocean</span>
+        </div>
+      </div>
+      
+      <!-- Other Features -->
+      <div class="legend-section">
+        <div class="legend-section-title">Other Features</div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #FFFFFF;"></div>
+          <span>Ice Caps</span>
+        </div>
+        <div class="legend-item">
+          <div class="legend-color" style="background-color: #000000;"></div>
+          <span>Coastlines</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Toggle legend visibility
+    document.getElementById('legend-toggle').addEventListener('click', function() {
+      const content = document.getElementById('legend-content');
+      const toggle = document.getElementById('legend-toggle');
+      
+      if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        toggle.textContent = '−';
+      } else {
+        content.classList.add('hidden');
+        toggle.textContent = '+';
+      }
+    });
+  </script>
 </body>
 </html>
