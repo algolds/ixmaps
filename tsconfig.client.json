@@ -4,8 +4,9 @@
     "outDir": "./public/dist/js",
     "rootDir": "./src/js",
     "moduleResolution": "node",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "sourceMap": true
   },
   "include": ["src/js/**/*"],
-  "exclude": ["node_modules", "dist", "public/dist"]
+  "exclude": ["node_modules", "public/dist"]
 }

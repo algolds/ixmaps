@@ -8,7 +8,7 @@ const command = args[0];
 
 switch (command) {
   case 'serve':
-    const serverPath = path.join(__dirname, '../server.ts');
+    const serverPath = path.join(__dirname, 'server.ts');
     const server = spawn('npx', ['ts-node', serverPath, ...args.slice(1)], {
       stdio: 'inherit',
       shell: true

@@ -1,20 +1,15 @@
-import express, { Request, Response } from 'express';
+import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import { dirname } from 'path';
-
-// Get current file directory (ES modules approach)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { Request, Response, NextFunction } from 'express';
 
 const app = express();
-const PORT: number = process.env.PORT ? parseInt(process.env.PORT) : 3008;
+const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3008;
 
 // Main project directory and public folder for static assets
-const publicDir: string = path.join(__dirname, 'public');
+const publicDir = path.join(__dirname, '../../public');
 
 // CORS middleware for development
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
   next();

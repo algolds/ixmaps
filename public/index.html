@@ -8,7 +8,6 @@
   <!-- Preload critical resources -->
   <link rel="preload" href="css/main.css" as="style">
   <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" as="style" crossorigin="anonymous">
-  <link rel="preload" href="dist/js/index.js" as="script" crossorigin="anonymous">
   
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" crossorigin="anonymous" />
@@ -22,13 +21,7 @@
   <!-- Add Leaflet as a global script first -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" crossorigin="anonymous"></script>
   
-  <!-- Add a module to expose Leaflet globally for ES modules -->
-  <script type="module">
-    // Create a global L reference for non-module scripts
-    window.L = L;
-  </script>
-  
   <!-- Main TypeScript bundle -->
-  <script type="module" src="dist/js/index.js" crossorigin="anonymous"></script>
+  <script type="module" src="/dist/js/main.js"></script>
 </body>
 </html>

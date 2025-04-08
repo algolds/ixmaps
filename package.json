@@ -2,15 +2,17 @@
   "name": "ixmaps",
   "version": "4.0.0",
   "description": "IxMaps Interactive Mapping System",
-  "type": "module",
   "bin": {
-    "ixmaps": "./dist/cli.js"
+    "ixmaps": "./dist/server/cli.js"
   },
   "scripts": {
-    "build": "tsc -b tsconfig.server.json tsconfig.client.json",
-    "watch": "tsc -b tsconfig.server.json tsconfig.client.json -w",
-    "start": "npm run build && node dist/server.js",
-    "dev": "concurrently \"npm run watch\" \"nodemon dist/server.js\"",
+    "build:server": "tsc -p tsconfig.server.json",
+    "build:client": "tsc -p tsconfig.client.json",
+    "build:vite": "vite build",
+    "build": "npm run build:server && npm run build:client && npm run build:vite",
+    "watch": "concurrently \"tsc -p tsconfig.server.json -w\" \"vite build --watch\"",
+    "start": "node dist/server/server.js",
+    "dev": "ts-node src/server/server.ts",
     "postinstall": "npm run build"
   },
   "dependencies": {
@@ -24,6 +26,7 @@
     "concurrently": "^8.2.2",
     "nodemon": "^3.0.3",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vite": "^5.0.0"
   }
 }
