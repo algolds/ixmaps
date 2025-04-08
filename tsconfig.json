@@ -1,0 +1,37 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "sourceMap": true,
+    "declaration": true,
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "typeRoots": ["./node_modules/@types", "./src/js"]
+  },
+  "references": [
+    {
+      "path": {
+        "compilerOptions": {
+          "outDir": "./dist",
+          "rootDir": "."
+        },
+        "include": ["server.ts", "cli.ts"],
+        "exclude": ["node_modules", "dist", "public"]
+      }
+    },
+    {
+      "path": {
+        "compilerOptions": {
+          "outDir": "./public/dist/js",
+          "rootDir": "./src/js"
+        },
+        "include": ["src/js/**/*"],
+        "exclude": ["node_modules", "dist", "public/dist"]
+      }
+    }
+  ]
+} 

@@ -164,3 +164,178 @@ html, body {
 .ixmap-coordinates-display {
   min-width: 200px;
 }
+
+/* Legend styles */
+.map-legend {
+  position: absolute;
+  bottom: 30px;
+  left: 10px;
+  z-index: 1000;
+  background: white;
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  max-width: 200px;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+.legend-title {
+  font-weight: bold;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.legend-toggle {
+  cursor: pointer;
+  font-size: 18px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.legend-content {
+  transition: max-height 0.3s ease;
+  overflow: hidden;
+}
+
+.legend-content.hidden {
+  max-height: 0;
+}
+
+.legend-section {
+  margin-bottom: 15px;
+}
+
+.legend-section-title {
+  font-weight: bold;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.legend-color {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  border: 1px solid #ccc;
+}
+
+/* Control Panel Styles */
+.control-panel {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  background: white;
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  max-width: 250px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.control-panel.hidden {
+  transform: translateX(calc(100% + 10px));
+  opacity: 0;
+}
+
+.control-panel h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.control-panel h4 {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.control-toggle-button {
+  text-decoration: none !important;
+  font-size: 18px !important;
+  width: 30px !important;
+  height: 30px !important;
+  line-height: 30px !important;
+  text-align: center;
+  font-weight: bold;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.layer-toggle {
+  margin-bottom: 8px;
+}
+
+.layer-group {
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.layer-group:last-child {
+  border-bottom: none;
+}
+
+/* Country Label Styles */
+.country-label {
+  background-color: transparent !important;
+  border: none !important;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  font-weight: bold;
+  color: #333;
+  text-shadow: 
+    -1px -1px 0 #fff,
+    1px -1px 0 #fff,
+    -1px 1px 0 #fff,
+    1px 1px 0 #fff,
+    0 0 5px rgba(255, 255, 255, 0.7);
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 650;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  text-align: center;
+}
+
+.country-label:hover {
+  transform: scale(1.1);
+  color: #0078A8;
+  z-index: 700;
+}
+
+.country-label.capital {
+  color: #B22222;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.country-label.major {
+  font-size: 14px;
+}
+
+.country-label.minor {
+  font-size: 11px;
+  font-weight: normal;
+  opacity: 0.9;
+}
+
+/* Adjust label size based on zoom level */
+.leaflet-zoom-animated .country-label {
+  transition: font-size 0.3s ease;
+}
